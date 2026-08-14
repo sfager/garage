@@ -1,0 +1,66 @@
+@page "/"
+@attribute [Authorize]
+@implements IDisposable
+
+<PageTitle>Garage</PageTitle>
+
+@* Wireframe 1a. The reminder cards and the cost/MPG strip arrive with E3 and E5;
+   what is here now is the switcher, the vehicle in focus and its odometer. *@
+
+<VehicleSwitcher />
+
+@if (_loading)
+{
+    <p class="mono">Loading your garage…</p>
+}
+else if (Context.Selected is null)
+{
+    <div class="empty">
+        <h4>No vehicles yet</h4>
+        <p class="mono">Add a car and we will start tracking its mileage, service and running costs.</p>
+        <a class="btn btn-primary" href="/vehicles/add">Add a vehicle</a>
+    </div>
+}
+else
+{
+    var vehicle = Context.Selected;
+
+    <div class="ph" style="height:120px">
+        <span class="mono">vehicle photo — @vehicle.DisplayName</span>
+    </div>
+
+    <div class="row-between row-end">
+        <div>
+            <div class="sec">Odometer</div>
+            <div class="big" style="font-size:34px">
+                @vehicle.CurrentOdometer.ToString("N0")<span style="font-size:14px"> mi</span>
+            </div>
+            <div class="mono">as of @vehicle.CurrentOdometerDate.ToString("MMM d, yyyy")</div>
+        </div>
+        <a class="btn btn-primary" href="/mileage">Update</a>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="stack-tight">
+        <div class="sec">Coming up</div>
+        <p class="mono">Maintenance reminders land in E3 — nothing scheduled here yet.</p>
+    </div>
+}
+
+@code {
+    [Inject] private VehicleContext Context { get; set; } = default!;
+
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Context.Changed += OnContextChanged;
+        await Context.EnsureLoadedAsync();
+        _loading = false;
+    }
+
+    private Task OnContextChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Context.Changed -= OnContextChanged;
+}

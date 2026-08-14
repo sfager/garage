@@ -1,0 +1,40 @@
+@implements IDisposable
+
+@* Story F-2: five fixed tabs, the centre Log tab styled as the primary action.
+   Rows are 56px tall, comfortably over the 44px minimum.
+   Re-tapping the active tab scrolls to the top — see the listener in app.js. *@
+<nav class="tabbar">
+    @foreach (var tab in Tabs)
+    {
+        <a href="@tab.Href" class="@(tab.IsPrimary ? "tab-primary" : ActiveClass(tab.Segment))">@tab.Label</a>
+    }
+</nav>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private record Tab(string Label, string Href, string Segment, bool IsPrimary = false);
+
+    private static readonly Tab[] Tabs =
+    [
+        new("Home", "/", ""),
+        new("Service", "/service", "service"),
+        new("＋ Log", "/log", "log", IsPrimary: true),
+        new("Mileage", "/mileage", "mileage"),
+        new("Reports", "/reports", "reports")
+    ];
+
+    protected override void OnInitialized() => Navigation.LocationChanged += OnLocationChanged;
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => InvokeAsync(StateHasChanged);
+
+    private string Segment => Navigation
+        .ToBaseRelativePath(Navigation.Uri)
+        .Split('/', StringSplitOptions.RemoveEmptyEntries)
+        .FirstOrDefault() ?? string.Empty;
+
+    private string? ActiveClass(string segment) =>
+        string.Equals(Segment, segment, StringComparison.OrdinalIgnoreCase) ? "active" : null;
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

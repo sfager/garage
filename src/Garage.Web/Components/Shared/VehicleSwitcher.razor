@@ -1,0 +1,84 @@
+@using Garage.Application.Vehicles
+@implements IDisposable
+
+@* Story F-3. Two shapes of the same control: the full pill row that sits at the
+   top of Home, and the compact "Outback ▾" chip the secondary screens use [1c]. *@
+
+@if (Compact)
+{
+    <div class="row-between">
+        <button type="button" class="vehicle-chip" @onclick="ToggleMenu">
+            @(Context.Selected?.Nickname ?? "No vehicle") ▾
+        </button>
+        @ChildContent
+    </div>
+
+    @if (_menuOpen)
+    {
+        <div class="dialog-backdrop" @onclick="CloseMenu">
+            <div class="dialog" @onclick:stopPropagation="true">
+                <div class="dialog-title">Switch vehicle</div>
+                <div class="stack-tight">
+                    @foreach (var vehicle in Context.Garage)
+                    {
+                        <button type="button"
+                                class="btn @(vehicle.Id == Context.Selected?.Id ? "btn-primary" : "btn-secondary")"
+                                @onclick="() => SelectAsync(vehicle.Id)">
+                            @vehicle.Nickname — @vehicle.CurrentOdometer.ToString("N0") mi
+                        </button>
+                    }
+                    <a class="btn btn-secondary" href="/vehicles/add">＋ Add a vehicle</a>
+                </div>
+                <div class="dialog-actions">
+                    <button type="button" class="btn btn-ghost" @onclick="CloseMenu">Close</button>
+                </div>
+            </div>
+        </div>
+    }
+}
+else
+{
+    <div class="switcher">
+        @foreach (var vehicle in Context.Garage)
+        {
+            <button type="button"
+                    class="tag @(vehicle.Id == Context.Selected?.Id ? "tag-accent on" : "tag-neutral")"
+                    @onclick="() => SelectAsync(vehicle.Id)">
+                @vehicle.Nickname.ToUpperInvariant()
+            </button>
+        }
+        <a class="tag tag-outline" href="/vehicles/add">＋ Add</a>
+    </div>
+}
+
+@code {
+    [Inject] private VehicleContext Context { get; set; } = default!;
+
+    /// <summary>Compact renders the "Outback ▾" chip used on secondary screens.</summary>
+    [Parameter] public bool Compact { get; set; }
+
+    /// <summary>Trailing content for the compact header row — usually a "＋ Reminder" action.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool _menuOpen;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Context.Changed += OnContextChanged;
+        await Context.EnsureLoadedAsync();
+    }
+
+    private Task OnContextChanged() => InvokeAsync(StateHasChanged);
+
+    private void ToggleMenu() => _menuOpen = !_menuOpen;
+
+    private void CloseMenu() => _menuOpen = false;
+
+    private async Task SelectAsync(Guid vehicleId)
+    {
+        _menuOpen = false;
+        await Context.SelectAsync(vehicleId);
+    }
+
+    public void Dispose() => Context.Changed -= OnContextChanged;
+}

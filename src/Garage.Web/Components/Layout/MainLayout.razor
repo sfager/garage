@@ -1,0 +1,63 @@
+@inherits LayoutComponentBase
+
+<div class="shell">
+    <header class="shell-top">
+        <a class="shell-brand" href="/">GARAGE</a>
+
+        <nav class="shell-nav">
+            <NavLink href="/" Match="NavLinkMatch.All">Home</NavLink>
+            <NavLink href="/service">Maintenance</NavLink>
+            <NavLink href="/fuel">Fuel</NavLink>
+            <NavLink href="/mileage">Mileage</NavLink>
+            <NavLink href="/documents">Documents</NavLink>
+            <NavLink href="/reports">Reports</NavLink>
+        </nav>
+
+        <div class="shell-top-actions">
+            <AuthorizeView>
+                <Authorized>
+                    <a class="btn btn-secondary btn-sm" href="Account/Manage">@context.User.Identity?.Name</a>
+                    @* The endpoint redirects to "~/{ReturnUrl}", so this must be a relative
+                       path with no leading slash — "/" would build "~//", which is
+                       protocol-relative and rejected as non-local. Empty means the root. *@
+                    <form action="Account/Logout" method="post">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="" />
+                        <button type="submit" class="btn btn-ghost btn-sm">Sign out</button>
+                    </form>
+                </Authorized>
+                <NotAuthorized>
+                    <a class="btn btn-secondary btn-sm" href="Account/Login">Sign in</a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </header>
+
+    <main class="shell-body @(IsWide ? "wide" : null)">
+        @Body
+    </main>
+
+    <AuthorizeView>
+        <Authorized>
+            <TabBar />
+        </Authorized>
+    </AuthorizeView>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Something went wrong.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    /// <summary>Reports (wireframe 1m) is a desktop-width screen; everything else keeps the phone column.</summary>
+    private bool IsWide => Navigation
+        .ToBaseRelativePath(Navigation.Uri)
+        .StartsWith("reports", StringComparison.OrdinalIgnoreCase);
+
+    protected override void OnInitialized() =>
+        Navigation.LocationChanged += (_, _) => InvokeAsync(StateHasChanged);
+}
