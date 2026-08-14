@@ -1,0 +1,12 @@
+{
+    "recommendations": [
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.vscode-dotnet-runtime",
+        "ms-dotnettools.blazorwasm-companion",
+        "ms-vscode.makefile-tools",
+        "ms-vscode.powershell",
+        "REST Client",
+        "humao.rest-client",
+        "ritwickdey.LiveServer"
+    ]
+}

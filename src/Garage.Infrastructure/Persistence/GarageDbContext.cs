@@ -26,6 +26,9 @@ public class GarageDbContext(DbContextOptions<GarageDbContext> options)
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        builder.HasDefaultSchema("garage");
+
         builder.ApplyConfigurationsFromAssembly(typeof(GarageDbContext).Assembly);
     }
 }

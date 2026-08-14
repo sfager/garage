@@ -11,8 +11,12 @@ namespace Garage.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.EnsureSchema(
+                name: "garage");
+
             migrationBuilder.CreateTable(
                 name: "AspNetRoles",
+                schema: "garage",
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
@@ -27,6 +31,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "AspNetUsers",
+                schema: "garage",
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
@@ -54,6 +59,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "Households",
+                schema: "garage",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -67,6 +73,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "AspNetRoleClaims",
+                schema: "garage",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
@@ -81,6 +88,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_AspNetRoleClaims_AspNetRoles_RoleId",
                         column: x => x.RoleId,
+                        principalSchema: "garage",
                         principalTable: "AspNetRoles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -88,6 +96,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "AspNetUserClaims",
+                schema: "garage",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
@@ -102,6 +111,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_AspNetUserClaims_AspNetUsers_UserId",
                         column: x => x.UserId,
+                        principalSchema: "garage",
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -109,6 +119,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "AspNetUserLogins",
+                schema: "garage",
                 columns: table => new
                 {
                     LoginProvider = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
@@ -122,6 +133,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_AspNetUserLogins_AspNetUsers_UserId",
                         column: x => x.UserId,
+                        principalSchema: "garage",
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -129,6 +141,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "AspNetUserPasskeys",
+                schema: "garage",
                 columns: table => new
                 {
                     CredentialId = table.Column<byte[]>(type: "varbinary(1024)", maxLength: 1024, nullable: false),
@@ -141,6 +154,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_AspNetUserPasskeys_AspNetUsers_UserId",
                         column: x => x.UserId,
+                        principalSchema: "garage",
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -148,6 +162,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "AspNetUserRoles",
+                schema: "garage",
                 columns: table => new
                 {
                     UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
@@ -159,12 +174,14 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_AspNetUserRoles_AspNetRoles_RoleId",
                         column: x => x.RoleId,
+                        principalSchema: "garage",
                         principalTable: "AspNetRoles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_AspNetUserRoles_AspNetUsers_UserId",
                         column: x => x.UserId,
+                        principalSchema: "garage",
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -172,6 +189,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "AspNetUserTokens",
+                schema: "garage",
                 columns: table => new
                 {
                     UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
@@ -185,6 +203,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_AspNetUserTokens_AspNetUsers_UserId",
                         column: x => x.UserId,
+                        principalSchema: "garage",
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -192,6 +211,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "Vehicles",
+                schema: "garage",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -216,6 +236,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_Vehicles_Households_HouseholdId",
                         column: x => x.HouseholdId,
+                        principalSchema: "garage",
                         principalTable: "Households",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -223,6 +244,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "FuelEntries",
+                schema: "garage",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -241,6 +263,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_FuelEntries_Vehicles_VehicleId",
                         column: x => x.VehicleId,
+                        principalSchema: "garage",
                         principalTable: "Vehicles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -248,6 +271,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "OdometerReadings",
+                schema: "garage",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -264,6 +288,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_OdometerReadings_Vehicles_VehicleId",
                         column: x => x.VehicleId,
+                        principalSchema: "garage",
                         principalTable: "Vehicles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -271,6 +296,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "Reminders",
+                schema: "garage",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -293,6 +319,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_Reminders_Vehicles_VehicleId",
                         column: x => x.VehicleId,
+                        principalSchema: "garage",
                         principalTable: "Vehicles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -300,6 +327,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "ServiceRecords",
+                schema: "garage",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -320,6 +348,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_ServiceRecords_Vehicles_VehicleId",
                         column: x => x.VehicleId,
+                        principalSchema: "garage",
                         principalTable: "Vehicles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -327,6 +356,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "Trips",
+                schema: "garage",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -344,6 +374,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_Trips_Vehicles_VehicleId",
                         column: x => x.VehicleId,
+                        principalSchema: "garage",
                         principalTable: "Vehicles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -351,6 +382,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "Documents",
+                schema: "garage",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -371,11 +403,13 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_Documents_ServiceRecords_ServiceRecordId",
                         column: x => x.ServiceRecordId,
+                        principalSchema: "garage",
                         principalTable: "ServiceRecords",
                         principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_Documents_Vehicles_VehicleId",
                         column: x => x.VehicleId,
+                        principalSchema: "garage",
                         principalTable: "Vehicles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -383,6 +417,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "ServiceRecordItems",
+                schema: "garage",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -396,11 +431,13 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_ServiceRecordItems_Reminders_ReminderId",
                         column: x => x.ReminderId,
+                        principalSchema: "garage",
                         principalTable: "Reminders",
                         principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_ServiceRecordItems_ServiceRecords_ServiceRecordId",
                         column: x => x.ServiceRecordId,
+                        principalSchema: "garage",
                         principalTable: "ServiceRecords",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -408,11 +445,13 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetRoleClaims_RoleId",
+                schema: "garage",
                 table: "AspNetRoleClaims",
                 column: "RoleId");
 
             migrationBuilder.CreateIndex(
                 name: "RoleNameIndex",
+                schema: "garage",
                 table: "AspNetRoles",
                 column: "NormalizedName",
                 unique: true,
@@ -420,31 +459,37 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetUserClaims_UserId",
+                schema: "garage",
                 table: "AspNetUserClaims",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetUserLogins_UserId",
+                schema: "garage",
                 table: "AspNetUserLogins",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetUserPasskeys_UserId",
+                schema: "garage",
                 table: "AspNetUserPasskeys",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetUserRoles_RoleId",
+                schema: "garage",
                 table: "AspNetUserRoles",
                 column: "RoleId");
 
             migrationBuilder.CreateIndex(
                 name: "EmailIndex",
+                schema: "garage",
                 table: "AspNetUsers",
                 column: "NormalizedEmail");
 
             migrationBuilder.CreateIndex(
                 name: "UserNameIndex",
+                schema: "garage",
                 table: "AspNetUsers",
                 column: "NormalizedUserName",
                 unique: true,
@@ -452,56 +497,67 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_Documents_ServiceRecordId",
+                schema: "garage",
                 table: "Documents",
                 column: "ServiceRecordId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Documents_VehicleId_ExpiresOn",
+                schema: "garage",
                 table: "Documents",
                 columns: new[] { "VehicleId", "ExpiresOn" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_FuelEntries_VehicleId_Odometer",
+                schema: "garage",
                 table: "FuelEntries",
                 columns: new[] { "VehicleId", "Odometer" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_OdometerReadings_VehicleId_Date",
+                schema: "garage",
                 table: "OdometerReadings",
                 columns: new[] { "VehicleId", "Date" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Reminders_VehicleId_IsDismissed",
+                schema: "garage",
                 table: "Reminders",
                 columns: new[] { "VehicleId", "IsDismissed" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_ServiceRecordItems_ReminderId",
+                schema: "garage",
                 table: "ServiceRecordItems",
                 column: "ReminderId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ServiceRecordItems_ServiceRecordId",
+                schema: "garage",
                 table: "ServiceRecordItems",
                 column: "ServiceRecordId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ServiceRecords_VehicleId_Date",
+                schema: "garage",
                 table: "ServiceRecords",
                 columns: new[] { "VehicleId", "Date" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Trips_VehicleId_Date",
+                schema: "garage",
                 table: "Trips",
                 columns: new[] { "VehicleId", "Date" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Vehicles_HouseholdId_IsArchived",
+                schema: "garage",
                 table: "Vehicles",
                 columns: new[] { "HouseholdId", "IsArchived" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Vehicles_Vin",
+                schema: "garage",
                 table: "Vehicles",
                 column: "Vin");
         }
@@ -510,55 +566,72 @@ namespace Garage.Infrastructure.Persistence.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "AspNetRoleClaims");
+                name: "AspNetRoleClaims",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "AspNetUserClaims");
+                name: "AspNetUserClaims",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "AspNetUserLogins");
+                name: "AspNetUserLogins",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "AspNetUserPasskeys");
+                name: "AspNetUserPasskeys",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "AspNetUserRoles");
+                name: "AspNetUserRoles",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "AspNetUserTokens");
+                name: "AspNetUserTokens",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "Documents");
+                name: "Documents",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "FuelEntries");
+                name: "FuelEntries",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "OdometerReadings");
+                name: "OdometerReadings",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "ServiceRecordItems");
+                name: "ServiceRecordItems",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "Trips");
+                name: "Trips",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "AspNetRoles");
+                name: "AspNetRoles",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "AspNetUsers");
+                name: "AspNetUsers",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "Reminders");
+                name: "Reminders",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "ServiceRecords");
+                name: "ServiceRecords",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "Vehicles");
+                name: "Vehicles",
+                schema: "garage");
 
             migrationBuilder.DropTable(
-                name: "Households");
+                name: "Households",
+                schema: "garage");
         }
     }
 }

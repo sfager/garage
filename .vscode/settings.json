@@ -1,0 +1,39 @@
+{
+    "[csharp]": {
+        "editor.defaultFormatter": "ms-dotnettools.csharp",
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true
+    },
+    "[html]": {
+        "editor.defaultFormatter": "ms-vscode.html-language-features",
+        "editor.formatOnSave": true
+    },
+    "[json]": {
+        "editor.defaultFormatter": "ms-vscode.json-language-features",
+        "editor.formatOnSave": true
+    },
+    "editor.codeActionsOnSave": {
+        "source.fixAll": "explicit"
+    },
+    "omnisharp.enableEditorConfigSupport": true,
+    "omnisharp.enableRoslynAnalyzers": true,
+    "omnisharp.analyzeOpenDocumentsOnly": false,
+    "omnisharp.maxProjectFileCountForDiagnosticAnalysis": 10,
+    "files.exclude": {
+        "**/.git": true,
+        "**/.vscode": false,
+        "**/bin": true,
+        "**/obj": true
+    },
+    "search.exclude": {
+        "**/bin": true,
+        "**/obj": true,
+        "**/node_modules": true,
+        ".git": true
+    },
+    "dotnet.defaultSolutionOrFolder": "${workspaceFolder}",
+    "dotnet.server.useOmnisharp": false,
+    "[blazor]": {
+        "editor.defaultFormatter": "ms-dotnettools.csharp"
+    }
+}
