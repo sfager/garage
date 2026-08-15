@@ -1,3 +1,4 @@
+using Garage.Application.Maintenance;
 using Garage.Application.Mileage;
 using Garage.Application.Vehicles;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<VehicleContext>();
         services.AddScoped<VehicleService>();
         services.AddScoped<MileageService>();
+        services.AddScoped<MaintenanceService>();
         return services;
     }
 }

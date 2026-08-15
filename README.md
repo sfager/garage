@@ -95,6 +95,17 @@ belongs to a vehicle in the caller's household, so they are not readable by anot
 household even if the key leaks. A key the caller does not own returns 404 rather than
 403, so the endpoint does not confirm that a file exists.
 
+## Notifications (story S-5) — partially built
+
+The per-reminder switch, the active-reminders list with their triggers, and the in-app
+surfacing of due items on Home are all working. What is **not** built is delivery: nothing
+reaches the user while the app is closed. That needs a channel decision — web push
+(service worker plus VAPID keys), email (an SMTP or API provider), or both — and a
+background job to evaluate due points on a schedule. `Reminder.NotificationsEnabled` is
+the flag such a job would honour.
+
+The backlog schedules S-5 in phase 7, so this gap is expected at this point.
+
 ## Working with the schema
 
 Migrations live in `src/Garage.Infrastructure/Persistence/Migrations`.
@@ -119,7 +130,7 @@ dotnet test
 | E0 · Foundations | F-1, F-2, F-3 | Done — verified against SQL Server 2022 |
 | E1 · Garage and onboarding | V-1, V-2, V-4 | Done — verified against SQL Server 2022 |
 | E2 · Mileage | M-1, M-2, M-3 | Done — verified against SQL Server 2022 |
-| E3 · Maintenance and reminders | S-1 – S-6 | Not started |
+| E3 · Maintenance and reminders | S-1 – S-6 | Done, except notification delivery — see below |
 | E4 · Logging a service | L-1 – L-4 | Not started |
 | E5 · Fuel and running costs | G-1, G-2, G-3 | Not started |
 | E6 · Documents | D-1, D-2, D-3 | Not started |

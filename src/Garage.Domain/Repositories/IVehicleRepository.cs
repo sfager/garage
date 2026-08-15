@@ -1,7 +1,7 @@
-using Garage.Application.Vehicles;
 using Garage.Domain.Entities;
+using Garage.Domain.ValueObjects;
 
-namespace Garage.Application.Abstractions;
+namespace Garage.Domain.Repositories;
 
 public interface IVehicleRepository : IRepository<Vehicle>
 {

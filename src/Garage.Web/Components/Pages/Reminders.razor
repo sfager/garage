@@ -1,0 +1,227 @@
+@page "/service/reminders"
+@attribute [Authorize]
+@using Garage.Application.Maintenance
+@implements IDisposable
+
+<PageTitle>Reminders · Garage</PageTitle>
+
+@* Wireframe 1k: the new-reminder form, then the list of active reminders with their
+   triggers and per-reminder notification switches (stories S-1 and S-5). *@
+
+<div class="row-between">
+    <a class="btn btn-ghost btn-sm" href="/service">← Back</a>
+    <span class="mono">Reminders</span>
+</div>
+
+@if (_vehicle is null)
+{
+    <div class="empty">
+        <h4>No vehicle selected</h4>
+        <a class="btn btn-primary" href="/vehicles/add">Add a vehicle</a>
+    </div>
+}
+else
+{
+    <div class="card card-accent">
+        <div class="card-kicker">@(_request.Id is null ? "New reminder" : "Edit reminder")</div>
+
+        <EditForm Model="_request" OnValidSubmit="SaveAsync" FormName="reminder">
+            <DataAnnotationsValidator />
+
+            <div class="stack">
+                @if (_error is not null)
+                {
+                    <div class="alert alert-error">@_error</div>
+                }
+
+                <div class="field">
+                    <label for="item">What</label>
+                    <InputText id="item" class="input" @bind-Value="_request.Item" @bind-Value:after="PreviewAsync"
+                               placeholder="Tire rotation" />
+                    <ValidationMessage For="() => _request.Item" />
+                </div>
+
+                <div class="field">
+                    <label>Vehicle</label>
+                    <input class="input" value="@_vehicle.Nickname" disabled />
+                </div>
+
+                <div class="sec">Notify me at</div>
+
+                <div class="row">
+                    <div class="field flex-1">
+                        <label for="miles">Every ___ miles</label>
+                        <InputNumber id="miles" class="input" @bind-Value="_request.MileageInterval"
+                                     @bind-Value:after="PreviewAsync" placeholder="6000" />
+                        <ValidationMessage For="() => _request.MileageInterval" />
+                    </div>
+                    <div class="field flex-1">
+                        <label for="months">Or every ___ months</label>
+                        <InputNumber id="months" class="input" @bind-Value="_request.MonthInterval"
+                                     @bind-Value:after="PreviewAsync" placeholder="6" />
+                        <ValidationMessage For="() => _request.MonthInterval" />
+                    </div>
+                </div>
+
+                @* Story S-1: the projected due point, in words, before saving. *@
+                <div class="mono">@(_preview?.Explanation ?? "Set a mileage interval, a month interval, or both.")</div>
+
+                <label class="radio">
+                    <InputCheckbox @bind-Value="_request.RepeatAfterService" />
+                    Repeat after each service
+                </label>
+
+                <label class="radio">
+                    <InputCheckbox @bind-Value="_request.NotificationsEnabled" />
+                    Notify me when it falls due
+                </label>
+
+                <div class="row">
+                    <button type="submit" class="btn btn-primary flex-1" disabled="@(_busy || _request.HasNoTrigger)">
+                        @(_request.Id is null ? "Set reminder" : "Save changes")
+                    </button>
+                    @if (_request.Id is not null)
+                    {
+                        <button type="button" class="btn btn-secondary" @onclick="StartNew">Cancel</button>
+                    }
+                </div>
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="sec">Active — @_cards.Count(c => !c.IsDismissed)</div>
+
+    @foreach (var card in _cards)
+    {
+        <div class="li">
+            <span>
+                @card.Item
+                <div class="mono">@card.IntervalDescription · @card.Projection.TriggerDescription</div>
+            </span>
+            <span class="li-end">
+                @if (card.IsDismissed)
+                {
+                    <span class="tag tag-neutral">DISMISSED</span>
+                }
+                else if (card.Projection.IsOverdue)
+                {
+                    <span class="tag tag-accent">DUE</span>
+                }
+
+                <div class="row" style="justify-content:flex-end;gap:4px;margin-top:4px">
+                    @* Story S-5's per-reminder switch. *@
+                    <button type="button" class="btn btn-ghost btn-sm"
+                            title="Notifications" @onclick="() => ToggleNotificationsAsync(card)">
+                        @(card.NotificationsEnabled ? "on" : "off")
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => EditAsync(card)">edit</button>
+                    @if (card.IsDismissed)
+                    {
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => ReinstateAsync(card)">restore</button>
+                    }
+                </div>
+            </span>
+        </div>
+    }
+
+    @if (_cards.Count == 0)
+    {
+        <p class="mono">No reminders yet.</p>
+    }
+}
+
+@code {
+    [Inject] private VehicleContext Context { get; set; } = default!;
+    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
+
+    private VehicleSummary? _vehicle;
+    private ReminderRequest _request = new();
+    private ReminderPreview? _preview;
+    private IReadOnlyList<ReminderCard> _cards = [];
+    private string? _error;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Context.Changed += OnContextChanged;
+        await Context.EnsureLoadedAsync();
+        await ReloadAsync();
+    }
+
+    private async Task OnContextChanged()
+    {
+        await ReloadAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ReloadAsync()
+    {
+        _vehicle = Context.Selected;
+        _cards = _vehicle is null ? [] : await Maintenance.ListAllAsync(_vehicle.Id);
+        await PreviewAsync();
+    }
+
+    /// <summary>Recomputed as the intervals are typed, so the rule is visible as it is set.</summary>
+    private async Task PreviewAsync()
+    {
+        if (_vehicle is null)
+        {
+            _preview = null;
+            return;
+        }
+
+        _preview = await Maintenance.PreviewAsync(_vehicle.Id, _request);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_vehicle is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            await Maintenance.SaveAsync(_vehicle.Id, _request);
+            StartNew();
+            await ReloadAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void StartNew()
+    {
+        _request = new ReminderRequest();
+        _error = null;
+    }
+
+    private async Task EditAsync(ReminderCard card)
+    {
+        _request = card.ToRequest();
+        await PreviewAsync();
+    }
+
+    private async Task ToggleNotificationsAsync(ReminderCard card)
+    {
+        await Maintenance.SetNotificationsAsync(card.Id, !card.NotificationsEnabled);
+        await ReloadAsync();
+    }
+
+    private async Task ReinstateAsync(ReminderCard card)
+    {
+        await Maintenance.ReinstateAsync(card.Id);
+        await ReloadAsync();
+    }
+
+    public void Dispose() => Context.Changed -= OnContextChanged;
+}

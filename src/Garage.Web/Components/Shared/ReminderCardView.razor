@@ -1,0 +1,90 @@
+@using Garage.Application.Maintenance
+@using Garage.Domain.Services
+
+@* One item in the grouped maintenance list [1c]. Overdue items are accented and say
+   how far past due they are (story S-2); every item shows its progress (story S-3). *@
+
+<div class="card @(Card.Projection.IsOverdue ? "card-accent" : null)">
+    <div class="row-between">
+        <span class="card-title">@Card.Item</span>
+        @if (Card.Projection.IsOverdue)
+        {
+            <span class="tag tag-accent">OVERDUE</span>
+        }
+    </div>
+
+    <div class="mono">@Card.Projection.TriggerDescription</div>
+
+    @* Story S-3: both triggers are drawn where both exist, so it is clear which fills first. *@
+    @if (Card.Projection.MileageProgress is { } mileageProgress)
+    {
+        <div>
+            <div class="row-between">
+                <span class="mono">MILES</span>
+                <span class="mono">@MileageNote</span>
+            </div>
+            <div class="bar @(Card.Projection.IsOverdue && Card.Projection.MilesRemaining <= 0 ? "bar-over" : null)">
+                <span style="width:@(Percent(mileageProgress))%"></span>
+            </div>
+        </div>
+    }
+
+    @if (Card.Projection.TimeProgress is { } timeProgress)
+    {
+        <div>
+            <div class="row-between">
+                <span class="mono">TIME</span>
+                <span class="mono">@TimeNote</span>
+            </div>
+            <div class="bar @(Card.Projection.IsOverdue && Card.Projection.DaysRemaining <= 0 ? "bar-over" : null)">
+                <span style="width:@(Percent(timeProgress))%"></span>
+            </div>
+        </div>
+    }
+
+    <div class="mono">@Card.Projection.RemainingDescription</div>
+
+    @if (ShowActions)
+    {
+        @* Story S-4: log, snooze or dismiss straight from the card. *@
+        <div class="row" style="flex-wrap:wrap">
+            <a class="btn btn-primary btn-sm flex-1" href="@LogItHref">Log it</a>
+            <button type="button" class="btn btn-secondary btn-sm flex-1" @onclick="() => OnSnooze.InvokeAsync(Card)">Snooze</button>
+            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnDismiss.InvokeAsync(Card)">Dismiss</button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ReminderCard Card { get; set; } = default!;
+
+    /// <summary>"Later" items are listed without actions, matching the wireframe.</summary>
+    [Parameter] public bool ShowActions { get; set; } = true;
+
+    [Parameter] public EventCallback<ReminderCard> OnSnooze { get; set; }
+    [Parameter] public EventCallback<ReminderCard> OnDismiss { get; set; }
+
+    /// <summary>
+    /// Story S-4: opens the service wizard prefilled with this item. E4 builds the
+    /// wizard; it reads the reminder id from the query string.
+    /// </summary>
+    private string LogItHref => $"/log?reminderId={Card.Id}";
+
+    private string MileageNote => Card.Projection.MilesRemaining switch
+    {
+        null => "—",
+        <= 0 and var over => $"+{Math.Abs(over):N0} over",
+        var left => $"{left:N0} mi"
+    };
+
+    private string TimeNote => Card.Projection.DaysRemaining switch
+    {
+        null => "—",
+        <= 0 and var over => $"+{Math.Abs(over)} d over",
+        var left and < 45 => $"{left} d",
+        var left => $"{(int)Math.Round(left.Value / 30.44)} mo"
+    };
+
+    /// <summary>Progress can exceed the interval; the bar stops at full.</summary>
+    private static int Percent(double progress) => (int)Math.Clamp(progress * 100, 0, 100);
+}

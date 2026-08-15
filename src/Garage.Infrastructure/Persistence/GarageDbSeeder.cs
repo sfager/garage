@@ -59,11 +59,13 @@ public class GarageDbSeeder(GarageDbContext context, ILogger<GarageDbSeeder> log
         vehicle.RecordTrip(Trip.FromOdometers(vehicle.Id, new DateOnly(2026, 8, 11), 88_290, 88_404, "Home → Portland", TripPurpose.Business));
         vehicle.RecordReading(new DateOnly(2026, 8, 13), 88_412);
 
-        // Anchored at the February oil change, so this reads as 912 miles past due.
+        // The intervals and anchors below are chosen so the demo reproduces the bands in
+        // wireframe 1c: oil overdue by 912 miles, a mileage-led rotation, a time-led
+        // filter and brake fluid, and two items far enough out to fall under "later".
         vehicle.AddReminder(new Reminder(vehicle.Id, "Oil & filter", 5_000, 6, 82_500, new DateOnly(2026, 2, 10)));
-        vehicle.AddReminder(new Reminder(vehicle.Id, "Tire rotation", 6_000, 6, 83_500, new DateOnly(2026, 3, 2)));
+        vehicle.AddReminder(new Reminder(vehicle.Id, "Tire rotation", 6_000, 12, 83_500, new DateOnly(2026, 3, 2)));
         vehicle.AddReminder(new Reminder(vehicle.Id, "Cabin air filter", null, 12, 82_100, new DateOnly(2025, 12, 15)));
-        vehicle.AddReminder(new Reminder(vehicle.Id, "Brake fluid", 30_000, 36, 60_000, new DateOnly(2023, 12, 1)));
+        vehicle.AddReminder(new Reminder(vehicle.Id, "Brake fluid", 30_000, 36, 70_000, new DateOnly(2023, 12, 1)));
         vehicle.AddReminder(new Reminder(vehicle.Id, "Spark plugs", 60_000, null, 45_000, new DateOnly(2022, 6, 1)));
         vehicle.AddReminder(new Reminder(vehicle.Id, "Timing belt", 105_000, null, 15_000, new DateOnly(2019, 4, 1)));
 

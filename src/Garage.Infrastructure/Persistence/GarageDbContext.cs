@@ -27,9 +27,6 @@ public class GarageDbContext(DbContextOptions<GarageDbContext> options)
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-
-        builder.HasDefaultSchema("garage");
-
         builder.ApplyConfigurationsFromAssembly(typeof(GarageDbContext).Assembly);
 
         // Every aggregate assigns its own Id in the constructor. Without this, EF sees a

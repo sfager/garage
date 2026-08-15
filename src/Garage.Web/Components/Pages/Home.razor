@@ -1,5 +1,6 @@
 @page "/"
 @attribute [Authorize]
+@using Garage.Application.Maintenance
 @using Garage.Application.Mileage
 @using Garage.Domain.Services
 @implements IDisposable
@@ -58,18 +59,53 @@ else
 
     <div class="hr"></div>
 
+    @* Wireframe 1a: the overdue item gets a card with its actions; everything else
+       due soon is listed underneath. *@
+    @foreach (var card in _overdue)
+    {
+        <ReminderCardView Card="card" OnSnooze="OpenSnooze" OnDismiss="DismissAsync" />
+    }
+
     <div class="stack-tight">
         <div class="sec">Coming up</div>
-        <p class="mono">Maintenance reminders land in E3 — nothing scheduled here yet.</p>
+
+        @if (_comingUp.Count == 0)
+        {
+            <p class="mono">
+                @(_overdue.Count > 0
+                    ? "Nothing else due soon."
+                    : "Nothing scheduled.")
+                <a href="/service/reminders">Add a reminder</a>
+            </p>
+        }
+        else
+        {
+            @foreach (var card in _comingUp)
+            {
+                <a class="li" style="text-decoration:none;color:inherit" href="/service">
+                    <span>@card.Item</span>
+                    <span class="mono">@card.Projection.RemainingDescription</span>
+                </a>
+            }
+        }
     </div>
+
+    @if (_snoozing is { } target)
+    {
+        <SnoozeDialog Card="target" OnClose="() => _snoozing = null" OnSnoozed="OnSnoozedAsync" />
+    }
 }
 
 @code {
     [Inject] private VehicleContext Context { get; set; } = default!;
     [Inject] private IFileStore FileStore { get; set; } = default!;
     [Inject] private MileageService Mileage { get; set; } = default!;
+    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
 
     private MileageSummary? _summary;
+    private IReadOnlyList<ReminderCard> _overdue = [];
+    private IReadOnlyList<ReminderCard> _comingUp = [];
+    private ReminderCard? _snoozing;
     private bool _loading = true;
     private bool _showUpdate;
 
@@ -87,10 +123,38 @@ else
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task LoadSummaryAsync() =>
-        _summary = Context.Selected is { } vehicle
-            ? await Mileage.GetSummaryAsync(vehicle.Id)
-            : null;
+    private async Task LoadSummaryAsync()
+    {
+        if (Context.Selected is not { } vehicle)
+        {
+            _summary = null;
+            _overdue = [];
+            _comingUp = [];
+            return;
+        }
+
+        _summary = await Mileage.GetSummaryAsync(vehicle.Id);
+
+        var cards = await Maintenance.ListUpcomingAsync(vehicle.Id);
+        _overdue = [.. cards.Where(c => c.Band == DueBand.Overdue)];
+
+        // The home screen is a glance, not the full list — three is what fits [1a].
+        _comingUp = [.. cards.Where(c => c.Band == DueBand.DueSoon).Take(3)];
+    }
+
+    private void OpenSnooze(ReminderCard card) => _snoozing = card;
+
+    private async Task OnSnoozedAsync()
+    {
+        _snoozing = null;
+        await LoadSummaryAsync();
+    }
+
+    private async Task DismissAsync(ReminderCard card)
+    {
+        await Maintenance.DismissAsync(card.Id);
+        await LoadSummaryAsync();
+    }
 
     /// <summary>Story M-1: the new reading has to show everywhere immediately.</summary>
     private async Task OnRecordedAsync()

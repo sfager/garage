@@ -1,3 +1,4 @@
+using Garage.Domain.Repositories;
 using Garage.Application;
 using Garage.Application.Abstractions;
 using Garage.Infrastructure;
@@ -11,6 +12,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.StaticFiles;
+
 
 var builder = WebApplication.CreateBuilder(args);
 

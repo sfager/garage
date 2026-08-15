@@ -1,11 +1,207 @@
 @page "/service"
 @attribute [Authorize]
+@using Garage.Application.Maintenance
+@using Garage.Domain.Services
+@implements IDisposable
 
 <PageTitle>Maintenance · Garage</PageTitle>
 
-<VehicleSwitcher Compact="true" />
+@* Wireframe 1c: grouped list in three bands, with an Upcoming | History toggle. *@
 
-<div class="empty">
-    <h4>Maintenance</h4>
-    <p class="mono">This screen is built in epic E3.</p>
-</div>
+<VehicleSwitcher Compact="true">
+    <a class="btn btn-ghost btn-sm" href="/service/reminders">＋ Reminder</a>
+</VehicleSwitcher>
+
+@if (_vehicle is null)
+{
+    <div class="empty">
+        <h4>No vehicle selected</h4>
+        <a class="btn btn-primary" href="/vehicles/add">Add a vehicle</a>
+    </div>
+}
+else
+{
+    <h4 style="margin:0">Maintenance</h4>
+
+    <div class="seg seg-block">
+        <button type="button" class="seg-opt @(_tab == Tab.Upcoming ? "on" : null)" @onclick="() => SetTabAsync(Tab.Upcoming)">Upcoming</button>
+        <button type="button" class="seg-opt @(_tab == Tab.History ? "on" : null)" @onclick="() => SetTabAsync(Tab.History)">History</button>
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-error">@_error</div>
+    }
+
+    @if (_loading)
+    {
+        <p class="mono">Loading…</p>
+    }
+    else if (_tab == Tab.Upcoming)
+    {
+        @if (_cards.Count == 0)
+        {
+            @* Story S-2: an empty state with a way to add a reminder. *@
+            <div class="empty">
+                <h4>Nothing scheduled</h4>
+                <p class="mono">Add a reminder and we will tell you when it falls due.</p>
+                <a class="btn btn-primary" href="/service/reminders">＋ Add a reminder</a>
+            </div>
+        }
+        else
+        {
+            @foreach (var band in Bands)
+            {
+                var inBand = _cards.Where(c => c.Band == band).ToList();
+                if (inBand.Count == 0)
+                {
+                    continue;
+                }
+
+                <div class="sec" style="@(band == DueBand.Overdue ? "color:var(--color-accent-700)" : null)">
+                    @BandLabel(band)@(band == DueBand.Overdue ? $" — {inBand.Count}" : null)
+                </div>
+
+                @foreach (var card in inBand)
+                {
+                    @* "Later" items are a plain list in the wireframe, not full cards. *@
+                    @if (band == DueBand.Later)
+                    {
+                        <div class="li">
+                            <span>@card.Item</span>
+                            <span class="mono">@card.Projection.TriggerDescription</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <ReminderCardView Card="card" OnSnooze="OpenSnooze" OnDismiss="DismissAsync" />
+                    }
+                }
+            }
+        }
+    }
+    else
+    {
+        @* Story S-6: history, newest first. *@
+        @if (_history.Count == 0)
+        {
+            <div class="empty">
+                <h4>No service logged yet</h4>
+                <a class="btn btn-primary" href="/log">Log a service</a>
+            </div>
+        }
+        else
+        {
+            @foreach (var entry in _history)
+            {
+                <a class="li" style="text-decoration:none;color:inherit" href="@($"/service/history/{entry.Id}")">
+                    <span>
+                        @entry.Date.ToString("MMM d, yyyy") · @entry.Summary
+                        <div class="mono">
+                            @entry.Odometer.ToString("N0") mi@(entry.Shop is null ? null : $" · {entry.Shop}")@(entry.ReceiptCount > 0 ? $" · {entry.ReceiptCount} receipt{(entry.ReceiptCount == 1 ? "" : "s")}" : null)
+                        </div>
+                    </span>
+                    <span class="li-end">@entry.TotalCost.ToString("C2")</span>
+                </a>
+            }
+        }
+    }
+
+    @if (_snoozing is { } target)
+    {
+        <SnoozeDialog Card="target" OnClose="() => _snoozing = null" OnSnoozed="OnSnoozedAsync" />
+    }
+}
+
+@code {
+    [Inject] private VehicleContext Context { get; set; } = default!;
+    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
+
+    private enum Tab { Upcoming, History }
+
+    private static readonly DueBand[] Bands = [DueBand.Overdue, DueBand.DueSoon, DueBand.Later];
+
+    private VehicleSummary? _vehicle;
+    private Tab _tab = Tab.Upcoming;
+    private IReadOnlyList<ReminderCard> _cards = [];
+    private IReadOnlyList<ServiceHistoryEntry> _history = [];
+    private ReminderCard? _snoozing;
+    private string? _error;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Context.Changed += OnContextChanged;
+        await Context.EnsureLoadedAsync();
+        await ReloadAsync();
+    }
+
+    private async Task OnContextChanged()
+    {
+        await ReloadAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ReloadAsync()
+    {
+        _loading = true;
+        _vehicle = Context.Selected;
+
+        if (_vehicle is null)
+        {
+            _cards = [];
+            _history = [];
+            _loading = false;
+            return;
+        }
+
+        if (_tab == Tab.Upcoming)
+        {
+            _cards = await Maintenance.ListUpcomingAsync(_vehicle.Id);
+        }
+        else
+        {
+            _history = await Maintenance.ListHistoryAsync(_vehicle.Id);
+        }
+
+        _loading = false;
+    }
+
+    private async Task SetTabAsync(Tab tab)
+    {
+        _tab = tab;
+        await ReloadAsync();
+    }
+
+    private static string BandLabel(DueBand band) => band switch
+    {
+        DueBand.Overdue => "Overdue",
+        DueBand.DueSoon => "Due soon",
+        _ => "Later"
+    };
+
+    private void OpenSnooze(ReminderCard card) => _snoozing = card;
+
+    private async Task OnSnoozedAsync()
+    {
+        _snoozing = null;
+        await ReloadAsync();
+    }
+
+    private async Task DismissAsync(ReminderCard card)
+    {
+        _error = null;
+
+        try
+        {
+            await Maintenance.DismissAsync(card.Id);
+            await ReloadAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    public void Dispose() => Context.Changed -= OnContextChanged;
+}
