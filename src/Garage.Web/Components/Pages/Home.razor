@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using Garage.Application.Maintenance
 @using Garage.Application.Mileage
+@using Garage.Application.ServiceLogging
 @using Garage.Domain.Services
 @implements IDisposable
 
@@ -57,6 +58,20 @@ else
         <OdometerCard VehicleId="vehicle.Id" Summary="_summary" OnRecorded="OnRecordedAsync" />
     }
 
+    @* Story L-4: an entry left half-finished can be picked back up. *@
+    @if (_resumable)
+    {
+        <div class="card card-accent">
+            <div class="card-kicker">Unfinished entry</div>
+            <div class="card-title">@Wizard.Draft.Summary</div>
+            <div class="mono">Started @Wizard.Draft.StartedUtc.ToLocalTime().ToString("MMM d, HH:mm")</div>
+            <div class="row">
+                <a class="btn btn-primary flex-1" href="/log">Resume</a>
+                <button type="button" class="btn btn-secondary" @onclick="DiscardDraftAsync">Discard</button>
+            </div>
+        </div>
+    }
+
     <div class="hr"></div>
 
     @* Wireframe 1a: the overdue item gets a card with its actions; everything else
@@ -101,7 +116,9 @@ else
     [Inject] private IFileStore FileStore { get; set; } = default!;
     [Inject] private MileageService Mileage { get; set; } = default!;
     [Inject] private MaintenanceService Maintenance { get; set; } = default!;
+    [Inject] private ServiceLogWizard Wizard { get; set; } = default!;
 
+    private bool _resumable;
     private MileageSummary? _summary;
     private IReadOnlyList<ReminderCard> _overdue = [];
     private IReadOnlyList<ReminderCard> _comingUp = [];
@@ -135,6 +152,9 @@ else
 
         _summary = await Mileage.GetSummaryAsync(vehicle.Id);
 
+        await Wizard.EnsureLoadedAsync(vehicle.Id);
+        _resumable = Wizard.HasResumableDraft;
+
         var cards = await Maintenance.ListUpcomingAsync(vehicle.Id);
         _overdue = [.. cards.Where(c => c.Band == DueBand.Overdue)];
 
@@ -154,6 +174,12 @@ else
     {
         await Maintenance.DismissAsync(card.Id);
         await LoadSummaryAsync();
+    }
+
+    private async Task DiscardDraftAsync()
+    {
+        await Wizard.DiscardAsync();
+        _resumable = false;
     }
 
     /// <summary>Story M-1: the new reading has to show everywhere immediately.</summary>

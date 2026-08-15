@@ -1,0 +1,215 @@
+@page "/log/notes"
+@attribute [Authorize]
+@using Garage.Application.Maintenance
+@using Garage.Application.ServiceLogging
+
+<PageTitle>Notes · Garage</PageTitle>
+
+@* Wireframe 1f, step 3: notes, receipt photos and the next-due summary. *@
+
+@if (_redirecting)
+{
+    <p class="mono">Nothing in progress — starting over…</p>
+}
+else
+{
+    <WizardHeader Step="3" Title="Notes" PreviousStep="/log/cost" />
+
+    <h4 style="margin:0">Anything to remember?</h4>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-error">@_error</div>
+    }
+
+    <textarea class="input" placeholder="Used 0W-20 full synthetic…" rows="4"
+              @onchange="e => Wizard.Draft.Notes = e.Value?.ToString()">@Wizard.Draft.Notes</textarea>
+
+    <div class="sec">Receipts</div>
+
+    @if (Wizard.Draft.Receipts.Count > 0)
+    {
+        <div class="grid-2">
+            @foreach (var receipt in Wizard.Draft.Receipts)
+            {
+                <div class="card">
+                    @if (receipt.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <img src="@FileStore.GetUrl(receipt.StorageKey)" alt="@receipt.FileName"
+                             style="height:100px;width:100%;object-fit:cover" />
+                    }
+                    else
+                    {
+                        <div class="ph" style="height:100px"><span class="mono">@receipt.FileName</span></div>
+                    }
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveReceiptAsync(receipt.StorageKey)">
+                        Remove
+                    </button>
+                </div>
+            }
+        </div>
+    }
+
+    <InputFile OnChange="UploadAsync" accept="image/*,application/pdf" multiple class="input" />
+    <div class="mono">Photograph the receipt now and it stays with this record.</div>
+
+    @* Story L-3: the next-due summary, with the intervals editable while it is fresh. *@
+    @if (_scheduled.Count > 0)
+    {
+        <div class="card card-accent">
+            <div class="card-kicker">Next reminder</div>
+
+            @foreach (var item in _scheduled)
+            {
+                <div class="stack-tight">
+                    <div class="card-title">@item.Name</div>
+                    <div class="row">
+                        <div class="field flex-1">
+                            <label>Repeat every ___ miles</label>
+                            <input type="number" class="input" value="@item.NextMileageInterval"
+                                   @onchange="e => SetMileage(item, e.Value)" />
+                        </div>
+                        <div class="field flex-1">
+                            <label>Or ___ months</label>
+                            <input type="number" class="input" value="@item.NextMonthInterval"
+                                   @onchange="e => SetMonths(item, e.Value)" />
+                        </div>
+                    </div>
+                    <div class="mono">Next due @NextDueDescription(item)</div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <p class="mono">
+            None of these jobs is on a reminder.
+            <a href="/service/reminders">Add one</a> to be told when it comes round again.
+        </p>
+    }
+
+    <button type="button" class="btn btn-primary btn-block" disabled="@_busy" @onclick="SaveAsync">
+        @(_busy ? "Saving…" : "Save entry")
+    </button>
+}
+
+@code {
+    private const long MaxReceiptBytes = 12 * 1024 * 1024;
+
+    [Inject] private ServiceLogWizard Wizard { get; set; } = default!;
+    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
+    [Inject] private VehicleContext Context { get; set; } = default!;
+    [Inject] private IFileStore FileStore { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private List<ServiceDraftItem> _scheduled = [];
+    private string? _error;
+    private bool _busy;
+    private bool _redirecting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Context.EnsureLoadedAsync();
+
+        if (Context.Selected is not { } vehicle)
+        {
+            _redirecting = true;
+            Navigation.NavigateTo("/log");
+            return;
+        }
+
+        await Wizard.EnsureLoadedAsync(vehicle.Id);
+
+        if (!Wizard.Draft.HasItems)
+        {
+            _redirecting = true;
+            Navigation.NavigateTo("/log");
+            return;
+        }
+
+        _scheduled = [.. Wizard.Draft.Items.Where(i => i.ReminderId is not null)];
+
+        // Prefill each one's existing intervals so "repeat every" starts from what it is now.
+        var cards = await Maintenance.ListAllAsync(vehicle.Id);
+        foreach (var item in _scheduled)
+        {
+            var card = cards.FirstOrDefault(c => c.Id == item.ReminderId);
+            item.NextMileageInterval ??= card?.MileageInterval;
+            item.NextMonthInterval ??= card?.MonthInterval;
+        }
+
+        await Wizard.PersistAsync();
+    }
+
+    private void SetMileage(ServiceDraftItem item, object? value) =>
+        item.NextMileageInterval = int.TryParse(value?.ToString(), out var parsed) ? parsed : null;
+
+    private void SetMonths(ServiceDraftItem item, object? value) =>
+        item.NextMonthInterval = int.TryParse(value?.ToString(), out var parsed) ? parsed : null;
+
+    /// <summary>Projected from the odometer being logged, not from where the car stands now.</summary>
+    private string NextDueDescription(ServiceDraftItem item)
+    {
+        var odometer = Wizard.Draft.Odometer;
+        var parts = new List<string>();
+
+        if (item.NextMileageInterval is { } miles && odometer is { } odo)
+        {
+            parts.Add($"{odo + miles:N0} mi");
+        }
+
+        if (item.NextMonthInterval is { } months)
+        {
+            parts.Add($"{Wizard.Draft.Date.AddMonths(months):MMM yyyy}");
+        }
+
+        return parts.Count switch
+        {
+            0 => "— no interval set",
+            1 => parts[0],
+            _ => string.Join(" or ", parts) + " — whichever first"
+        };
+    }
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        _error = null;
+
+        foreach (var file in e.GetMultipleFiles(10))
+        {
+            if (file.Size > MaxReceiptBytes)
+            {
+                _error = $"{file.Name} is larger than 12 MB.";
+                continue;
+            }
+
+            await using var stream = file.OpenReadStream(MaxReceiptBytes);
+            await Wizard.AddReceiptAsync(stream, file.Name, file.ContentType, file.Size);
+        }
+    }
+
+    private Task RemoveReceiptAsync(string storageKey) => Wizard.RemoveReceiptAsync(storageKey);
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var record = await Wizard.SaveAsync();
+
+            // The service moved the odometer, so every open screen needs the new figure.
+            await Context.RefreshSelectedAsync();
+            Navigation.NavigateTo($"/service/history/{record.Id}");
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

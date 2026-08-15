@@ -63,6 +63,23 @@ public class ServiceRecord : Entity
         return item;
     }
 
+    /// <summary>
+    /// Files a receipt against this visit. Both sides of the relationship are set here
+    /// so the record reads correctly straight after saving, without waiting for a
+    /// reload to have the database fix the navigation up.
+    /// </summary>
+    public void AttachReceipt(Document receipt)
+    {
+        ArgumentNullException.ThrowIfNull(receipt);
+
+        receipt.AttachToServiceRecord(Id);
+
+        if (!_receipts.Contains(receipt))
+        {
+            _receipts.Add(receipt);
+        }
+    }
+
     public void ClearItems() => _items.Clear();
 
     /// <summary>Story L-2: parts and labour are optional, but together may not exceed the total.</summary>

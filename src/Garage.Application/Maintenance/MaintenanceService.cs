@@ -1,7 +1,8 @@
 using Garage.Application.Abstractions;
+using Garage.Application.Mileage;
+using Garage.Domain;
 using Garage.Domain.Common;
 using Garage.Domain.Entities;
-using Garage.Domain.Repositories;
 using Garage.Domain.Services;
 
 namespace Garage.Application.Maintenance;
@@ -194,6 +195,13 @@ public class MaintenanceService(
     {
         var householdId = await currentUser.GetHouseholdIdAsync(cancellationToken);
         return await serviceRecords.GetForHouseholdAsync(recordId, householdId, cancellationToken);
+    }
+
+    /// <summary>Story L-2: the shop field remembers where work has been done before.</summary>
+    public async Task<IReadOnlyList<string>> ListShopsAsync(CancellationToken cancellationToken = default)
+    {
+        var householdId = await currentUser.GetHouseholdIdAsync(cancellationToken);
+        return await serviceRecords.ListShopsAsync(householdId, cancellationToken);
     }
 
     /// <summary>The vehicle's rate, which every projection depends on (story S-3).</summary>

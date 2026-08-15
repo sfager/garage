@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Garage.Application.Abstractions;
 using Garage.Domain.Entities;
-using Garage.Domain.Repositories;
 using Garage.Infrastructure.Identity;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;

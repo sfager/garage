@@ -1,5 +1,4 @@
 using Garage.Application.Abstractions;
-using Garage.Domain.Repositories;
 using Garage.Infrastructure.Persistence;
 using Garage.Infrastructure.Persistence.Repositories;
 using Garage.Infrastructure.Services;
