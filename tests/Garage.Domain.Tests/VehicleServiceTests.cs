@@ -2,6 +2,8 @@ using Garage.Application.Abstractions;
 using Garage.Application.Vehicles;
 using Garage.Domain.Common;
 using Garage.Domain.Entities;
+using Garage.Domain.Repositories;
+using Garage.Domain.ValueObjects;
 using NUnit.Framework;
 
 namespace Garage.Domain.Tests;

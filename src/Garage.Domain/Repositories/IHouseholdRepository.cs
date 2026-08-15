@@ -1,5 +1,5 @@
 using Garage.Domain.Entities;
 
-namespace Garage.Application.Abstractions;
+namespace Garage.Domain.Repositories;
 
 public interface IHouseholdRepository : IRepository<Household>;

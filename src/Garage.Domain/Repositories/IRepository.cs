@@ -1,6 +1,6 @@
 using Garage.Domain.Common;
 
-namespace Garage.Application.Abstractions;
+namespace Garage.Domain.Repositories;
 
 /// <summary>
 /// The shape every aggregate repository shares. Aggregate-specific queries live on
