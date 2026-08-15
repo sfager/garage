@@ -1,5 +1,4 @@
 using Garage.Application.Abstractions;
-using Garage.Domain.Repositories;
 using Garage.Infrastructure.Persistence;
 using Garage.Infrastructure.Persistence.Repositories;
 using Garage.Infrastructure.Services;
@@ -45,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IMileageRepository, MileageRepository>();
         services.AddScoped<IReminderRepository, ReminderRepository>();
         services.AddScoped<IServiceRecordRepository, ServiceRecordRepository>();
+        services.AddScoped<IFuelRepository, FuelRepository>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<GarageDbSeeder>();
 

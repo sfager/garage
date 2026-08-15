@@ -1,7 +1,8 @@
 using Garage.Application.Abstractions;
+using Garage.Application.Mileage;
+using Garage.Domain;
 using Garage.Domain.Common;
 using Garage.Domain.Entities;
-using Garage.Domain.Repositories;
 using Garage.Domain.Services;
 
 namespace Garage.Application.Maintenance;

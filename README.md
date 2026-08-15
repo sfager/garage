@@ -18,8 +18,8 @@ Garage.Web  ──────►  Garage.Infrastructure  ──────► 
 
 | Project | Contains | Depends on |
 | --- | --- | --- |
-| `src/Garage.Domain` | Entities, invariants, enums. No framework references at all. | — |
-| `src/Garage.Application` | Repository and service abstractions, application services, DTOs. | Domain |
+| `src/Garage.Domain` | Entities, ValueObjects, invariants, enums, Repository interfaces/abstractions. No framework references at all. | — |
+| `src/Garage.Application` | Service abstractions, application services, DTOs. | Domain |
 | `src/Garage.Infrastructure` | EF Core SQL Server context, configurations, repositories, migrations, ASP.NET Identity user. | Application |
 | `src/Garage.Web` | Blazor components, layout, and the presentation-owned implementations of `ICurrentUser` and `ISelectedVehicleStore`. | Application, Infrastructure |
 | `tests/Garage.Domain.Tests` | NUnit tests for the domain rules. | Domain, Application |
@@ -107,6 +107,24 @@ belongs to a vehicle in the caller's household, so they are not readable by anot
 household even if the key leaks. A key the caller does not own returns 404 rather than
 403, so the endpoint does not confirm that a file exists.
 
+## How efficiency and cost per mile are worked out
+
+**MPG is tank-to-tank.** A full fill returns the tank to a known level, so the fuel burned
+since the last full fill is everything added in between. Partial fills are therefore
+counted towards the gallons but never given an MPG of their own — attributing one to a
+half-tank top-up would invent a number. The first full fill only establishes a baseline.
+The average aggregates total miles over total gallons rather than averaging the per-fill
+figures, so a short tank does not weigh as much as a long one.
+
+**Cost per mile counts fuel and service together**, matching the reports screen [1m]. It is
+"what this car costs to run", not "what its fuel costs" — the epic is *fuel and running
+costs*. The trend chart's `$ / mi` and `Spend` metrics use the same definition, so the
+chart and the stats strip above it never disagree about what a label means. `MPG` is
+fuel-only by nature.
+
+Where a figure cannot be computed, the screen states why instead of showing a zero — a
+zero here reads as "this car does nought to the gallon" rather than "we cannot tell yet".
+
 ## Notifications (story S-5) — partially built
 
 The per-reminder switch, the active-reminders list with their triggers, and the in-app
@@ -144,7 +162,7 @@ dotnet test
 | E2 · Mileage | M-1, M-2, M-3 | Done — verified against SQL Server 2022 |
 | E3 · Maintenance and reminders | S-1 – S-6 | Done, except notification delivery — see below |
 | E4 · Logging a service | L-1 – L-4 | Done — verified against SQL Server 2022 |
-| E5 · Fuel and running costs | G-1, G-2, G-3 | Not started |
+| E5 · Fuel and running costs | G-1, G-2, G-3 | Done — verified against SQL Server 2022 |
 | E6 · Documents | D-1, D-2, D-3 | Not started |
 | E7 · Reports | R-1 – R-4 | Not started |
 | Phase 7 · Polish | V-3, S-5, G-3, R-3, R-4 | Not started |

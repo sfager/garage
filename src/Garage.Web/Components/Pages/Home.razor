@@ -1,5 +1,6 @@
 @page "/"
 @attribute [Authorize]
+@using Garage.Application.Fuel
 @using Garage.Application.Maintenance
 @using Garage.Application.Mileage
 @using Garage.Application.ServiceLogging
@@ -105,6 +106,30 @@ else
         }
     </div>
 
+    @* Wireframe 1a's foot: this month, cost per mile and average MPG. *@
+    @if (_stats is { } stats)
+    {
+        <div class="hr"></div>
+        <div class="grid-3">
+            <div>
+                <div class="sec">Last 30d</div>
+                <div class="big" style="font-size:20px">@stats.SpendLast30Days.ToString("C0")</div>
+            </div>
+            <div>
+                <div class="sec">Cost / mi</div>
+                <div class="big" style="font-size:20px">
+                    @(stats.CostPerMile is { } cpm ? cpm.ToString("C2") : "—")
+                </div>
+            </div>
+            <div>
+                <div class="sec">Avg MPG</div>
+                <div class="big" style="font-size:20px">
+                    @(stats.AverageMpg is { } mpg ? mpg.ToString("N1") : "—")
+                </div>
+            </div>
+        </div>
+    }
+
     @if (_snoozing is { } target)
     {
         <SnoozeDialog Card="target" OnClose="() => _snoozing = null" OnSnoozed="OnSnoozedAsync" />
@@ -117,8 +142,10 @@ else
     [Inject] private MileageService Mileage { get; set; } = default!;
     [Inject] private MaintenanceService Maintenance { get; set; } = default!;
     [Inject] private ServiceLogWizard Wizard { get; set; } = default!;
+    [Inject] private FuelService FuelService { get; set; } = default!;
 
     private bool _resumable;
+    private FuelStats? _stats;
     private MileageSummary? _summary;
     private IReadOnlyList<ReminderCard> _overdue = [];
     private IReadOnlyList<ReminderCard> _comingUp = [];
@@ -147,6 +174,7 @@ else
             _summary = null;
             _overdue = [];
             _comingUp = [];
+            _stats = null;
             return;
         }
 
@@ -160,6 +188,8 @@ else
 
         // The home screen is a glance, not the full list — three is what fits [1a].
         _comingUp = [.. cards.Where(c => c.Band == DueBand.DueSoon).Take(3)];
+
+        _stats = (await FuelService.GetScreenAsync(vehicle.Id, FuelRange.TwelveMonths)).Stats;
     }
 
     private void OpenSnooze(ReminderCard card) => _snoozing = card;

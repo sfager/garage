@@ -1,5 +1,5 @@
+using Garage.Application.Abstractions;
 using Garage.Domain.Entities;
-using Garage.Domain.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace Garage.Infrastructure.Persistence.Repositories;
@@ -41,6 +41,21 @@ public class ServiceRecordRepository(GarageDbContext context)
             .FirstOrDefaultAsync(
                 s => s.Id == recordId && s.Vehicle!.HouseholdId == householdId,
                 cancellationToken);
+
+    public async Task<decimal> SumSpendAsync(Guid vehicleId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default) =>
+        await Set.Where(s => s.VehicleId == vehicleId && s.Date >= from && s.Date <= to)
+            .SumAsync(s => (decimal?)s.TotalCost, cancellationToken) ?? 0m;
+
+    public async Task<IReadOnlyList<(DateOnly Date, decimal Cost)>> ListSpendAsync(
+        Guid vehicleId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
+    {
+        var rows = await Set
+            .Where(s => s.VehicleId == vehicleId && s.Date >= from && s.Date <= to)
+            .Select(s => new { s.Date, s.TotalCost })
+            .ToListAsync(cancellationToken);
+
+        return [.. rows.Select(r => (r.Date, r.TotalCost))];
+    }
 
     public async Task<IReadOnlyList<string>> ListShopsAsync(Guid householdId, CancellationToken cancellationToken = default) =>
         await Set.Where(s => s.Vehicle!.HouseholdId == householdId && s.Shop != null)

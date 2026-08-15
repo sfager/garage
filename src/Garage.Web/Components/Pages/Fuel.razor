@@ -1,11 +1,282 @@
 @page "/fuel"
 @attribute [Authorize]
+@using Garage.Application.Fuel
+@implements IDisposable
 
 <PageTitle>Fuel · Garage</PageTitle>
 
-<VehicleSwitcher Compact="true" />
+@* Wireframes 1h and 1i combined, as chosen: the stats strip, then the trend chart with
+   its metric toggle, then the fill-up log. *@
 
-<div class="empty">
-    <h4>Fuel</h4>
-    <p class="mono">This screen is built in epic E5.</p>
-</div>
+<VehicleSwitcher Compact="true">
+    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OpenEditor(null)">＋ Fill-up</button>
+</VehicleSwitcher>
+
+@if (_vehicle is null)
+{
+    <div class="empty">
+        <h4>No vehicle selected</h4>
+        <a class="btn btn-primary" href="/vehicles/add">Add a vehicle</a>
+    </div>
+}
+else if (_screen is null)
+{
+    <p class="mono">Loading…</p>
+}
+else
+{
+    <h4 style="margin:0">Fuel</h4>
+
+    @* Story G-2: three figures, each with a stated reason when it cannot be computed. *@
+    <div class="card card-accent">
+        <div class="grid-3">
+            <div>
+                <div class="sec">Avg MPG</div>
+                @if (_screen.Stats.AverageMpg is { } mpg)
+                {
+                    <div class="big" style="font-size:24px">@mpg.ToString("N1")</div>
+                }
+                else
+                {
+                    <div class="mono">not yet</div>
+                }
+            </div>
+            <div>
+                <div class="sec">$ / mi</div>
+                @if (_screen.Stats.CostPerMile is { } cpm)
+                {
+                    <div class="big" style="font-size:24px">@cpm.ToString("N2")</div>
+                }
+                else
+                {
+                    <div class="mono">not yet</div>
+                }
+            </div>
+            <div>
+                <div class="sec">Last 30d</div>
+                <div class="big" style="font-size:24px">@_screen.Stats.SpendLast30Days.ToString("C0")</div>
+            </div>
+        </div>
+
+        @if (_screen.Stats.MpgUnavailableReason is { } mpgReason)
+        {
+            <div class="mono">MPG — @mpgReason</div>
+        }
+        @if (_screen.Stats.CostPerMileUnavailableReason is { } cpmReason)
+        {
+            <div class="mono">Cost per mile — @cpmReason</div>
+        }
+        else
+        {
+            <div class="mono">
+                Cost per mile counts fuel and service together —
+                @((_screen.Stats.FuelSpendInRange + _screen.Stats.ServiceSpendInRange).ToString("C0"))
+                over @_screen.Stats.MilesInRange.ToString("N0") mi.
+            </div>
+        }
+    </div>
+
+    @* Story G-3: the trend chart, its metric toggle and its range control [1i]. *@
+    <div class="row-between">
+        <span class="sec">Efficiency</span>
+        <span class="mono">@MetricLabel · @RangeLabel</span>
+    </div>
+
+    <div class="card">
+        @if (_screen.Trend.Count == 0)
+        {
+            <p class="mono">Nothing to plot in this range yet.</p>
+        }
+        else
+        {
+            <div class="row" style="align-items:flex-end;gap:6px;height:120px">
+                @foreach (var point in _screen.Trend)
+                {
+                    <div class="flex-1" style="display:flex;flex-direction:column;justify-content:flex-end;height:100%"
+                         title="@point.Month.ToString("MMM yyyy") — @point.Label">
+                        <div style="height:@(HeightPercent(point))%;background:var(--color-accent-400);min-height:2px"></div>
+                    </div>
+                }
+            </div>
+            <div class="row-between">
+                <span class="mono">@_screen.Trend[0].Month.ToString("MMM")</span>
+                <span class="mono">@_screen.Trend[^1].Month.ToString("MMM") · @_screen.Trend[^1].Label</span>
+            </div>
+        }
+    </div>
+
+    <div class="seg seg-block">
+        <button type="button" class="seg-opt @(_metric == FuelMetric.Mpg ? "on" : null)" @onclick="() => SetMetricAsync(FuelMetric.Mpg)">MPG</button>
+        <button type="button" class="seg-opt @(_metric == FuelMetric.CostPerMile ? "on" : null)" @onclick="() => SetMetricAsync(FuelMetric.CostPerMile)">$ / mi</button>
+        <button type="button" class="seg-opt @(_metric == FuelMetric.Spend ? "on" : null)" @onclick="() => SetMetricAsync(FuelMetric.Spend)">Spend</button>
+    </div>
+
+    <div class="seg seg-block">
+        <button type="button" class="seg-opt @(_range == FuelRange.SixMonths ? "on" : null)" @onclick="() => SetRangeAsync(FuelRange.SixMonths)">6 mo</button>
+        <button type="button" class="seg-opt @(_range == FuelRange.TwelveMonths ? "on" : null)" @onclick="() => SetRangeAsync(FuelRange.TwelveMonths)">12 mo</button>
+        <button type="button" class="seg-opt @(_range == FuelRange.All ? "on" : null)" @onclick="() => SetRangeAsync(FuelRange.All)">All</button>
+    </div>
+
+    @* Story G-3: both vehicles comparable in one block [1i]. *@
+    @if (_screen.Comparison.Count > 1)
+    {
+        <div class="card">
+            <div class="card-kicker">Both vehicles · 12 mo</div>
+            @foreach (var vehicle in _screen.Comparison)
+            {
+                <div class="li">
+                    <span>@vehicle.Nickname</span>
+                    <span class="mono">
+                        @(vehicle.AverageMpg is { } m ? $"{m:N1} mpg" : "mpg not yet")
+                        @(vehicle.CostPerMile is { } c ? $" · ${c:N2}/mi" : null)
+                    </span>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="sec">Fill-ups</div>
+
+    @if (_screen.Efficiency.Fills.Count == 0)
+    {
+        <div class="empty">
+            <p class="mono">No fill-ups logged yet.</p>
+            <button type="button" class="btn btn-primary" @onclick="() => OpenEditor(null)">＋ Log a fill-up</button>
+        </div>
+    }
+    else
+    {
+        @foreach (var fill in _screen.Efficiency.Fills)
+        {
+            <div class="li">
+                <span>
+                    @fill.Date.ToString("MMM d") · @fill.Gallons.ToString("N1") gal
+                    @if (fill.IsPartialFill)
+                    {
+                        <span class="tag tag-neutral" style="margin-left:6px">PARTIAL</span>
+                    }
+                    <div class="mono">@(_screen.Stations.GetValueOrDefault(fill.Id) ?? "—")</div>
+                </span>
+                <span class="li-end">
+                    @fill.TotalCost.ToString("C2")
+                    <div class="mono">
+                        @if (fill.Mpg is { } fillMpg)
+                        {
+                            @($"{fillMpg:N1} mpg")
+                        }
+                        else if (fill.IsPartialFill)
+                        {
+                            @("partial — not measured")
+                        }
+                        else
+                        {
+                            @("first full tank")
+                        }
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OpenEditor(fill.Id)">edit</button>
+                </span>
+            </div>
+        }
+    }
+
+    @if (_editing)
+    {
+        <FuelEntryDialog VehicleId="_vehicle.Id"
+                         EntryId="_editingId"
+                         CurrentOdometer="_vehicle.CurrentOdometer"
+                         OnClose="CloseEditor"
+                         OnSaved="OnSavedAsync" />
+    }
+}
+
+@code {
+    [Inject] private VehicleContext Context { get; set; } = default!;
+    [Inject] private FuelService FuelService { get; set; } = default!;
+
+    private VehicleSummary? _vehicle;
+    private FuelScreen? _screen;
+    private FuelMetric _metric = FuelMetric.Mpg;
+    private FuelRange _range = FuelRange.SixMonths;
+    private bool _editing;
+    private Guid? _editingId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Context.Changed += OnContextChanged;
+        await Context.EnsureLoadedAsync();
+        await ReloadAsync();
+    }
+
+    private async Task OnContextChanged()
+    {
+        await ReloadAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ReloadAsync()
+    {
+        _vehicle = Context.Selected;
+        _screen = _vehicle is null ? null : await FuelService.GetScreenAsync(_vehicle.Id, _range, _metric);
+    }
+
+    private async Task SetMetricAsync(FuelMetric metric)
+    {
+        _metric = metric;
+        await ReloadAsync();
+    }
+
+    private async Task SetRangeAsync(FuelRange range)
+    {
+        _range = range;
+        await ReloadAsync();
+    }
+
+    private string MetricLabel => _metric switch
+    {
+        FuelMetric.Mpg => "MPG",
+        FuelMetric.CostPerMile => "$ / mi",
+        _ => "Spend"
+    };
+
+    private string RangeLabel => _range switch
+    {
+        FuelRange.SixMonths => "6 mo",
+        FuelRange.TwelveMonths => "12 mo",
+        _ => "all time"
+    };
+
+    /// <summary>Bars are drawn relative to the tallest in view, so a flat run still reads.</summary>
+    private int HeightPercent(FuelTrendPoint point)
+    {
+        if (point.Value is not { } value || _screen is null)
+        {
+            return 0;
+        }
+
+        var max = _screen.Trend.Max(p => p.Value ?? 0);
+        return max <= 0 ? 0 : (int)Math.Clamp(value / max * 100, 2, 100);
+    }
+
+    private void OpenEditor(Guid? entryId)
+    {
+        _editingId = entryId;
+        _editing = true;
+    }
+
+    private void CloseEditor()
+    {
+        _editing = false;
+        _editingId = null;
+    }
+
+    private async Task OnSavedAsync()
+    {
+        CloseEditor();
+
+        // A fill-up can move the odometer, so the shared context has to catch up.
+        await Context.RefreshSelectedAsync();
+        await ReloadAsync();
+    }
+
+    public void Dispose() => Context.Changed -= OnContextChanged;
+}
