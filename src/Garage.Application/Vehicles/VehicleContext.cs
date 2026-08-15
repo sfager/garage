@@ -157,7 +157,24 @@ public class VehicleContext(
         await NotifyAsync();
     }
 
-    private Task NotifyAsync() => Changed?.Invoke() ?? Task.CompletedTask;
+    /// <summary>
+    /// Invokes subscribers one at a time. A multicast Func&lt;Task&gt; returns only the
+    /// last handler's task from Invoke(), so awaiting that alone would leave every
+    /// earlier handler's database work running unobserved — and this context is shared,
+    /// which permits no concurrent operations.
+    /// </summary>
+    private async Task NotifyAsync()
+    {
+        if (Changed is null)
+        {
+            return;
+        }
+
+        foreach (var handler in Changed.GetInvocationList().Cast<Func<Task>>())
+        {
+            await handler();
+        }
+    }
 
     public void Dispose() => _gate.Dispose();
 }

@@ -1,11 +1,157 @@
 @page "/mileage"
 @attribute [Authorize]
+@using Garage.Application.Mileage
+@using Garage.Domain.Services
+@implements IDisposable
 
 <PageTitle>Mileage · Garage</PageTitle>
 
+@* Wireframe 1j: the reading card on top, then the merged readings-and-trips log. *@
+
 <VehicleSwitcher Compact="true" />
 
-<div class="empty">
-    <h4>Mileage</h4>
-    <p class="mono">This screen is built in epic E2.</p>
-</div>
+@if (_vehicle is null)
+{
+    <div class="empty">
+        <h4>No vehicle selected</h4>
+        <a class="btn btn-primary" href="/vehicles/add">Add a vehicle</a>
+    </div>
+}
+else
+{
+    <h4 style="margin:0">Mileage</h4>
+
+    <OdometerCard @ref="_odometerCard" VehicleId="_vehicle.Id" Summary="_summary" OnRecorded="OnOdometerRecordedAsync" />
+
+    <div class="seg seg-block">
+        <button type="button" class="seg-opt @(_filter is null ? "on" : null)" @onclick="() => SetFilterAsync(null)">All</button>
+        <button type="button" class="seg-opt @(_filter == MileageEntryKind.Reading ? "on" : null)"
+                @onclick="() => SetFilterAsync(MileageEntryKind.Reading)">Readings</button>
+        <button type="button" class="seg-opt @(_filter == MileageEntryKind.Trip ? "on" : null)"
+                @onclick="() => SetFilterAsync(MileageEntryKind.Trip)">Trips</button>
+    </div>
+
+    @if (_log.Count == 0)
+    {
+        <div class="empty">
+            <p class="mono">Nothing logged yet.</p>
+        </div>
+    }
+    else
+    {
+        <div>
+            @foreach (var entry in _log)
+            {
+                <div class="li">
+                    <span>
+                        @entry.Date.ToString("MMM d") · @entry.Description
+                        @if (entry.Detail is not null)
+                        {
+                            <div class="mono">@entry.Detail</div>
+                        }
+                    </span>
+                    <span class="li-end">
+                        @entry.Odometer.ToString("N0")
+                        <div class="mono">@(entry.Delta is { } d ? $"+{d:N0}" : "—")</div>
+                    </span>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="row" style="gap:8px">
+        <button type="button" class="btn btn-secondary flex-1" @onclick="FocusReadingAsync">＋ Reading</button>
+        <button type="button" class="btn btn-primary flex-1" @onclick="OpenTrip">＋ Trip</button>
+    </div>
+
+    @if (_showTrip)
+    {
+        <TripDialog VehicleId="_vehicle.Id"
+                    CurrentOdometer="_vehicle.CurrentOdometer"
+                    OnClose="() => _showTrip = false"
+                    OnSaved="OnTripSavedAsync" />
+    }
+}
+
+@code {
+    [Inject] private VehicleContext Context { get; set; } = default!;
+    // Named "Log" rather than "Mileage": a member may not share its enclosing
+    // component's name, and this page compiles to a class called Mileage.
+    [Inject] private MileageService Log { get; set; } = default!;
+
+    private VehicleSummary? _vehicle;
+    private MileageSummary? _summary;
+    private IReadOnlyList<MileageLogEntry> _log = [];
+    private MileageEntryKind? _filter;
+    private bool _showTrip;
+    private OdometerCard? _odometerCard;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Context.Changed += OnContextChanged;
+        await Context.EnsureLoadedAsync();
+        await ReloadAsync();
+    }
+
+    /// <summary>Switching vehicle has to reload the log, not just repaint the header.</summary>
+    private async Task OnContextChanged()
+    {
+        await ReloadAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ReloadAsync()
+    {
+        _vehicle = Context.Selected;
+
+        if (_vehicle is null)
+        {
+            _summary = null;
+            _log = [];
+            return;
+        }
+
+        _summary = await Log.GetSummaryAsync(_vehicle.Id);
+        _log = await Log.GetLogAsync(_vehicle.Id, _filter);
+    }
+
+    private async Task SetFilterAsync(MileageEntryKind? filter)
+    {
+        _filter = filter;
+        await ReloadAsync();
+    }
+
+    /// <summary>
+    /// Story M-1: a new reading has to show everywhere at once, so the shared context
+    /// is refreshed before this page redraws — otherwise the trip dialog would still
+    /// offer to start from the odometer the vehicle had a moment ago.
+    /// </summary>
+    private async Task OnOdometerRecordedAsync()
+    {
+        await Context.RefreshSelectedAsync();
+        await ReloadAsync();
+    }
+
+    /// <summary>The reading card is already on screen, so this puts the cursor in it.</summary>
+    private async Task FocusReadingAsync()
+    {
+        if (_odometerCard is not null)
+        {
+            await _odometerCard.FocusAsync();
+        }
+    }
+
+    private void OpenTrip() => _showTrip = true;
+
+    private async Task OnTripSavedAsync()
+    {
+        _showTrip = false;
+
+        // The trip moved the odometer, so the shared context has to catch up before
+        // the header and every other screen redraw.
+        await Context.RefreshSelectedAsync();
+        await ReloadAsync();
+    }
+
+    public void Dispose() => Context.Changed -= OnContextChanged;
+}

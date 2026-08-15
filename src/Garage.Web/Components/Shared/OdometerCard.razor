@@ -1,0 +1,111 @@
+@using Garage.Application.Mileage
+@using Garage.Domain.Services
+
+@* Story M-1: the prominent numeric entry with a Save action, shown both on Home [1a]
+   and on the Mileage tab [1j]. Story M-3 supplies the line beneath it. *@
+
+<div class="card card-accent">
+    <div class="sec">Reading today</div>
+
+    <EditForm Model="_request" OnValidSubmit="SaveAsync" FormName="@($"odometer-{VehicleId}")">
+        <DataAnnotationsValidator />
+
+        <div class="row">
+            <InputNumber id="@FieldId" class="input input-lg flex-1" @bind-Value="_request.Odometer" placeholder="88412" />
+            <button type="submit" class="btn btn-primary" disabled="@_busy">@(_busy ? "…" : "Save")</button>
+        </div>
+        <ValidationMessage For="() => _request.Odometer" />
+    </EditForm>
+
+    @if (_error is not null)
+    {
+        @* Story M-1: a rejected reading states the problem and offers the way out. *@
+        <div class="alert alert-error">
+            @_error
+            <div style="margin-top:6px">
+                <a class="btn btn-secondary btn-sm" href="/mileage">Review the log</a>
+            </div>
+        </div>
+    }
+
+    @if (_saved)
+    {
+        <div class="alert alert-info">Saved.</div>
+    }
+
+    @if (Summary is { } summary)
+    {
+        <div class="mono">
+            @if (summary.MilesSinceLast is { } miles && summary.SinceDate is { } since)
+            {
+                <span>+@miles.ToString("N0") mi since @since.ToString("MMM d")</span>
+            }
+            else
+            {
+                <span>first reading</span>
+            }
+            ·
+            @if (summary.MilesPerDay is { } rate)
+            {
+                <span>@rate.ToString("N0") mi/day average</span>
+            }
+            else
+            {
+                <span>@summary.UnavailableReason</span>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Inject] private MileageService Mileage { get; set; } = default!;
+    [Inject] private IClock Clock { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    [Parameter, EditorRequired] public Guid VehicleId { get; set; }
+
+    /// <summary>Story M-3's figures. Null while loading.</summary>
+    [Parameter] public MileageSummary? Summary { get; set; }
+
+    /// <summary>Raised after a reading is saved so the page reloads its log and header.</summary>
+    [Parameter] public EventCallback OnRecorded { get; set; }
+
+    private RecordReadingRequest _request = new();
+    private string? _error;
+    private bool _saved;
+    private bool _busy;
+
+    /// <summary>Unique per vehicle so Home and Mileage never collide on the same id.</summary>
+    private string FieldId => $"odometer-{VehicleId:N}";
+
+    protected override void OnInitialized() => _request.Date = Clock.Today;
+
+    /// <summary>Lets a page's "＋ Reading" action put the cursor straight in this field.</summary>
+    public ValueTask FocusAsync() => JS.InvokeVoidAsync("garage.focusField", FieldId);
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        _error = null;
+        _saved = false;
+
+        try
+        {
+            _request.Date = Clock.Today;
+            await Mileage.RecordReadingAsync(VehicleId, _request);
+
+            _request = new RecordReadingRequest { Date = Clock.Today };
+            _saved = true;
+
+            await OnRecorded.InvokeAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
