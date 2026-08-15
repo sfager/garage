@@ -3,9 +3,273 @@
 
 <PageTitle>Add a vehicle · Garage</PageTitle>
 
-<VehicleSwitcher Compact="true" />
+@* Wireframe 1b. Step 1 looks the vehicle up; step 2 confirms the details and takes
+   today's odometer. A failed lookup drops straight into step 2 with whatever was
+   typed still in place (story V-1). *@
 
-<div class="empty">
-    <h4>Add a vehicle</h4>
-    <p class="mono">This screen is built in epic E1.</p>
+<div class="row-between">
+    <button type="button" class="btn btn-ghost btn-sm" @onclick="Back">
+        ← @(_step == Step.Confirm ? "Back" : "Cancel")
+    </button>
+    <span class="mono">Step @((int)_step + 1) of 2</span>
 </div>
+
+@if (_step == Step.Lookup)
+{
+    <h3>Add a vehicle</h3>
+    <p class="mono">Look it up and we fill in the rest.</p>
+
+    <div class="seg seg-block">
+        <button type="button" class="seg-opt @(_method == LookupMethod.Vin ? "on" : null)"
+                @onclick="() => _method = LookupMethod.Vin">VIN</button>
+        <button type="button" class="seg-opt @(_method == LookupMethod.Plate ? "on" : null)"
+                @onclick="() => _method = LookupMethod.Plate">Plate</button>
+    </div>
+
+    <div class="field">
+        <label for="identifier">@(_method == LookupMethod.Vin ? "VIN" : "License plate")</label>
+        <input id="identifier" class="input" value="@_identifier"
+               @oninput="e => _identifier = e.Value?.ToString() ?? string.Empty"
+               maxlength="@(_method == LookupMethod.Vin ? 17 : 12)"
+               placeholder="@(_method == LookupMethod.Vin ? "4S4BSANC1K3311204" : "XKD 4417")" />
+        @if (_method == LookupMethod.Vin)
+        {
+            <div class="mono">@_identifier.Trim().Length of 17 characters</div>
+        }
+    </div>
+
+    @* Story V-3 (camera scan) is scheduled for phase 7; the affordance is shown as
+       inactive rather than hidden so the flow matches the wireframe. *@
+    <div class="ph" style="height:70px"><span class="mono">scan VIN with camera — phase 7</span></div>
+
+    @if (_lookupMessage is not null)
+    {
+        <div class="alert alert-error">@_lookupMessage</div>
+    }
+
+    <button type="button" class="btn btn-primary btn-block" disabled="@_busy" @onclick="LookupAsync">
+        @(_busy ? "Looking up…" : "Look up")
+    </button>
+    <button type="button" class="btn btn-secondary btn-block" @onclick="SkipLookup">
+        Enter the details myself
+    </button>
+}
+else
+{
+    <h3>Confirm the details</h3>
+
+    <EditForm Model="_request" OnValidSubmit="SaveAsync" FormName="add-vehicle">
+        <DataAnnotationsValidator />
+
+        <div class="stack">
+            @if (_lookupMessage is not null)
+            {
+                <div class="alert alert-error">@_lookupMessage</div>
+            }
+            else if (_foundDescription is not null)
+            {
+                <div class="card card-accent">
+                    <div class="card-kicker">Found — confirm</div>
+                    <div class="card-title">@_foundDescription</div>
+                    <div class="mono">Correct anything that is wrong before saving.</div>
+                </div>
+            }
+
+            @if (_error is not null)
+            {
+                <div class="alert alert-error">@_error</div>
+            }
+
+            <div class="field">
+                <label for="nickname">Nickname</label>
+                <InputText id="nickname" class="input" @bind-Value="_request.Nickname" />
+                <ValidationMessage For="() => _request.Nickname" />
+            </div>
+
+            <div class="field">
+                <label for="odometer">Odometer today — required</label>
+                <InputNumber id="odometer" class="input input-lg" @bind-Value="_request.Odometer" placeholder="88412" />
+                <ValidationMessage For="() => _request.Odometer" />
+            </div>
+
+            <div class="hr"></div>
+            <div class="sec">Vehicle details</div>
+
+            <div class="row">
+                <div class="field flex-1">
+                    <label for="year">Year</label>
+                    <InputNumber id="year" class="input" @bind-Value="_request.Year" />
+                </div>
+                <div class="field flex-1">
+                    <label for="make">Make</label>
+                    <InputText id="make" class="input" @bind-Value="_request.Make" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="field flex-1">
+                    <label for="model">Model</label>
+                    <InputText id="model" class="input" @bind-Value="_request.Model" />
+                </div>
+                <div class="field flex-1">
+                    <label for="trim">Trim</label>
+                    <InputText id="trim" class="input" @bind-Value="_request.Trim" />
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="engine">Engine</label>
+                <InputText id="engine" class="input" @bind-Value="_request.Engine" />
+            </div>
+
+            <div class="row">
+                <div class="field flex-1">
+                    <label for="vin">VIN</label>
+                    <InputText id="vin" class="input" @bind-Value="_request.Vin" />
+                    <ValidationMessage For="() => _request.Vin" />
+                </div>
+                <div class="field flex-1">
+                    <label for="plate">Plate</label>
+                    <InputText id="plate" class="input" @bind-Value="_request.LicensePlate" />
+                </div>
+            </div>
+
+            <ValidationMessage For="() => _request.Year" />
+
+            <button type="submit" class="btn btn-primary btn-block" disabled="@_busy">
+                @(_busy ? "Saving…" : "Add to garage")
+            </button>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Inject] private VehicleService Vehicles { get; set; } = default!;
+    [Inject] private IVehicleLookupService Lookup { get; set; } = default!;
+    [Inject] private VehicleContext Context { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private enum Step { Lookup, Confirm }
+
+    private Step _step = Step.Lookup;
+    private LookupMethod _method = LookupMethod.Vin;
+    private string _identifier = string.Empty;
+
+    private readonly AddVehicleRequest _request = new();
+    private string? _lookupMessage;
+    private string? _foundDescription;
+    private string? _error;
+    private bool _busy;
+
+    private async Task LookupAsync()
+    {
+        _busy = true;
+        _lookupMessage = null;
+
+        try
+        {
+            var result = await Lookup.LookupAsync(_method, _identifier);
+            ApplyLookup(result);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    /// <summary>
+    /// Both outcomes land on step 2. On success the fields are prefilled and the
+    /// confirm card names the vehicle; on failure the typed identifier is carried
+    /// across so nothing has to be retyped.
+    /// </summary>
+    private void ApplyLookup(VehicleLookupResult result)
+    {
+        if (result.Found)
+        {
+            _request.Year = result.Year;
+            _request.Make = result.Make;
+            _request.Model = result.Model;
+            _request.Trim = result.Trim;
+            _request.Engine = result.Engine;
+            _request.Vin = result.Vin;
+            _request.LicensePlate = result.LicensePlate;
+
+            // Story V-2: the nickname defaults to the model and stays editable.
+            _request.Nickname = result.Model ?? result.Make ?? string.Empty;
+
+            _foundDescription = string.Join(' ', new[]
+            {
+                result.Year?.ToString(), result.Make, result.Model, result.Trim
+            }.Where(p => !string.IsNullOrWhiteSpace(p)));
+        }
+        else
+        {
+            _lookupMessage = result.Message;
+            CarryIdentifierAcross();
+        }
+
+        _step = Step.Confirm;
+    }
+
+    private void SkipLookup()
+    {
+        CarryIdentifierAcross();
+        _step = Step.Confirm;
+    }
+
+    private void CarryIdentifierAcross()
+    {
+        if (string.IsNullOrWhiteSpace(_identifier))
+        {
+            return;
+        }
+
+        if (_method == LookupMethod.Vin)
+        {
+            _request.Vin = _identifier.Trim().ToUpperInvariant();
+        }
+        else
+        {
+            _request.LicensePlate = _identifier.Trim().ToUpperInvariant();
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var vehicle = await Vehicles.AddAsync(_request);
+
+            // Story V-2: the new vehicle becomes the selected one.
+            await Context.ReloadAsync();
+            await Context.SelectAsync(vehicle.Id);
+
+            Navigation.NavigateTo("/");
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void Back()
+    {
+        if (_step == Step.Confirm)
+        {
+            _step = Step.Lookup;
+            _lookupMessage = null;
+            _error = null;
+        }
+        else
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+}

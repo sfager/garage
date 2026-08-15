@@ -12,6 +12,7 @@ public static class DependencyInjection
     public static IServiceCollection AddGarageApplication(this IServiceCollection services)
     {
         services.AddScoped<VehicleContext>();
+        services.AddScoped<VehicleService>();
         return services;
     }
 }
