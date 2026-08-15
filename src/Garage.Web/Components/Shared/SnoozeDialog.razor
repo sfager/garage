@@ -1,0 +1,84 @@
+@using Garage.Application.Maintenance
+
+@* Story S-4: defer a due item by a chosen distance or period. *@
+
+<div class="dialog-backdrop" @onclick="OnClose">
+    <div class="dialog" @onclick:stopPropagation="true">
+        <div class="dialog-title">Snooze @Card.Item</div>
+        <p class="mono">@Card.Projection.RemainingDescription · @Card.Projection.TriggerDescription</p>
+
+        @if (_error is not null)
+        {
+            <div class="alert alert-error">@_error</div>
+        }
+
+        <div class="sec">Remind me again after</div>
+        <div class="stack-tight">
+            @foreach (var option in Options)
+            {
+                <button type="button"
+                        class="btn @(IsChosen(option) ? "btn-primary" : "btn-secondary")"
+                        @onclick="() => Choose(option)">@option.Label</button>
+            }
+        </div>
+
+        <div class="dialog-actions">
+            <button type="button" class="btn btn-secondary" @onclick="OnClose">Cancel</button>
+            <button type="button" class="btn btn-primary" disabled="@(_chosen is null || _busy)" @onclick="SnoozeAsync">
+                @(_busy ? "Snoozing…" : "Snooze")
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
+
+    [Parameter, EditorRequired] public ReminderCard Card { get; set; } = default!;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSnoozed { get; set; }
+
+    private record SnoozeOption(string Label, int? Miles, int? Months);
+
+    private static readonly SnoozeOption[] Options =
+    [
+        new("500 miles", 500, null),
+        new("1,000 miles", 1_000, null),
+        new("1 month", null, 1),
+        new("3 months", null, 3),
+        new("500 miles or 1 month", 500, 1)
+    ];
+
+    private SnoozeOption? _chosen;
+    private string? _error;
+    private bool _busy;
+
+    private bool IsChosen(SnoozeOption option) => _chosen == option;
+
+    private void Choose(SnoozeOption option) => _chosen = option;
+
+    private async Task SnoozeAsync()
+    {
+        if (_chosen is not { } option)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            await Maintenance.SnoozeAsync(Card.Id, new SnoozeRequest { ByMiles = option.Miles, ByMonths = option.Months });
+            await OnSnoozed.InvokeAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

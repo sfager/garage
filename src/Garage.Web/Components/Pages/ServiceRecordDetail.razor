@@ -1,0 +1,109 @@
+@page "/service/history/{RecordId:guid}"
+@attribute [Authorize]
+@using Garage.Application.Maintenance
+
+<PageTitle>Service record · Garage</PageTitle>
+
+@* Story S-6: tapping a history row opens the record with its notes and receipts. *@
+
+<div class="row-between">
+    <a class="btn btn-ghost btn-sm" href="/service">← History</a>
+</div>
+
+@if (_loading)
+{
+    <p class="mono">Loading…</p>
+}
+else if (_record is null)
+{
+    <div class="empty">
+        <h4>Not found</h4>
+        <p class="mono">That service record is not in your garage.</p>
+        <a class="btn btn-secondary" href="/service">Back to history</a>
+    </div>
+}
+else
+{
+    <h3 style="margin:0">@_record.Summary</h3>
+    <div class="mono">@_record.Date.ToString("MMMM d, yyyy") · @_record.Odometer.ToString("N0") mi</div>
+
+    <div class="card">
+        <div class="li"><span>Total</span><span>@_record.TotalCost.ToString("C2")</span></div>
+        @if (_record.PartsCost is { } parts)
+        {
+            <div class="li"><span class="mono">Parts</span><span>@parts.ToString("C2")</span></div>
+        }
+        @if (_record.LaborCost is { } labor)
+        {
+            <div class="li"><span class="mono">Labour</span><span>@labor.ToString("C2")</span></div>
+        }
+        <div class="li"><span class="mono">Category</span><span>@Humanize(_record.Category)</span></div>
+        @if (_record.Shop is { } shop)
+        {
+            <div class="li"><span class="mono">Shop</span><span>@shop</span></div>
+        }
+    </div>
+
+    @if (_record.Items.Count > 0)
+    {
+        <div class="sec">What was done</div>
+        @foreach (var item in _record.Items)
+        {
+            <div class="li"><span>@item.Name</span></div>
+        }
+    }
+
+    @if (_record.Notes is { } notes)
+    {
+        <div class="sec">Notes</div>
+        <p>@notes</p>
+    }
+
+    <div class="sec">Receipts</div>
+    @if (_record.Receipts.Count == 0)
+    {
+        <p class="mono">No receipts attached. Photographing one while logging keeps it with the record (epic E6).</p>
+    }
+    else
+    {
+        <div class="grid-2">
+            @foreach (var receipt in _record.Receipts)
+            {
+                <a href="@FileStore.GetUrl(receipt.StoragePath)" target="_blank" rel="noopener">
+                    @if (receipt.IsImage)
+                    {
+                        <img src="@FileStore.GetUrl(receipt.StoragePath)" alt="@receipt.Title"
+                             style="height:120px;width:100%;object-fit:cover;border:1px solid var(--color-divider)" />
+                    }
+                    else
+                    {
+                        <div class="ph" style="height:120px"><span class="mono">@receipt.Title</span></div>
+                    }
+                </a>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
+    [Inject] private IFileStore FileStore { get; set; } = default!;
+
+    [Parameter] public Guid RecordId { get; set; }
+
+    private ServiceRecord? _record;
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _record = await Maintenance.GetServiceRecordAsync(RecordId);
+        _loading = false;
+    }
+
+    private static string Humanize(ServiceCategory category) => category switch
+    {
+        ServiceCategory.ScheduledService => "Scheduled service",
+        _ => category.ToString()
+    };
+}
