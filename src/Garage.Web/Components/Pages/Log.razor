@@ -1,11 +1,160 @@
 @page "/log"
 @attribute [Authorize]
+@using Garage.Application.Maintenance
+@using Garage.Application.ServiceLogging
 
 <PageTitle>Log a service · Garage</PageTitle>
 
-<VehicleSwitcher Compact="true" />
+@* Wireframe 1f, step 1: search, the due-now shortcuts, common jobs and a custom option. *@
 
-<div class="empty">
-    <h4>Log a service</h4>
-    <p class="mono">This screen is built in epic E4.</p>
-</div>
+@if (_vehicle is null)
+{
+    <div class="empty">
+        <h4>No vehicle selected</h4>
+        <a class="btn btn-primary" href="/vehicles/add">Add a vehicle</a>
+    </div>
+}
+else
+{
+    <WizardHeader Step="1" Title="What" />
+
+    <h4 style="margin:0">What was done?</h4>
+    <div class="mono">@_vehicle.Nickname · @_vehicle.CurrentOdometer.ToString("N0") mi</div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-error">@_error</div>
+    }
+
+    <input class="input" placeholder="Search jobs…" value="@_search"
+           @oninput="e => _search = e.Value?.ToString() ?? string.Empty" />
+
+    @* Story L-1: chosen jobs are listed so a multi-job visit is visible as it is built. *@
+    @if (Wizard.Draft.Items.Count > 0)
+    {
+        <div class="sec">On this visit — @Wizard.Draft.Items.Count</div>
+        <div class="row" style="flex-wrap:wrap;gap:6px">
+            @foreach (var item in Wizard.Draft.Items)
+            {
+                <button type="button" class="tag tag-accent" @onclick="() => RemoveAsync(item.Name)">
+                    @item.Name ✕
+                </button>
+            }
+        </div>
+    }
+
+    @if (_dueNow.Count > 0)
+    {
+        <div class="sec">Due now</div>
+        <div class="row" style="flex-wrap:wrap;gap:6px">
+            @foreach (var card in _dueNow)
+            {
+                var chosen = IsChosen(card.Item);
+                <button type="button" class="tag @(chosen ? "tag-accent" : "tag-neutral")"
+                        @onclick="() => AddAsync(card.Item, card.Id)">
+                    @card.Item@(chosen ? " ✓" : null)
+                </button>
+            }
+        </div>
+    }
+
+    <div class="sec">Common</div>
+    @foreach (var job in CommonJobs.Search(_search))
+    {
+        <div class="li">
+            <span>@job.Name</span>
+            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => AddAsync(job.Name)">
+                @(IsChosen(job.Name) ? "✓" : "＋")
+            </button>
+        </div>
+    }
+
+    <div class="sec">Other</div>
+    <div class="row">
+        <input class="input flex-1" placeholder="Something else…" value="@_custom"
+               @oninput="e => _custom = e.Value?.ToString() ?? string.Empty" />
+        <button type="button" class="btn btn-secondary" disabled="@string.IsNullOrWhiteSpace(_custom)"
+                @onclick="AddCustomAsync">Add</button>
+    </div>
+
+    <button type="button" class="btn btn-primary btn-block" disabled="@(!Wizard.Draft.HasItems)"
+            @onclick="NextAsync">Next — cost</button>
+}
+
+@code {
+    [Inject] private VehicleContext Context { get; set; } = default!;
+    [Inject] private ServiceLogWizard Wizard { get; set; } = default!;
+    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    /// <summary>Set by the "Log it" action on a due card (story S-4).</summary>
+    [SupplyParameterFromQuery] public Guid? ReminderId { get; set; }
+
+    private VehicleSummary? _vehicle;
+    private IReadOnlyList<ReminderCard> _dueNow = [];
+    private string _search = string.Empty;
+    private string _custom = string.Empty;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Context.EnsureLoadedAsync();
+        _vehicle = Context.Selected;
+
+        if (_vehicle is null)
+        {
+            return;
+        }
+
+        await Wizard.EnsureLoadedAsync(_vehicle.Id);
+
+        var cards = await Maintenance.ListUpcomingAsync(_vehicle.Id);
+        _dueNow = [.. cards.Where(c => c.Band is DueBand.Overdue or DueBand.DueSoon)];
+
+        // Story S-4: arriving from a due card starts the visit with that item on it.
+        if (ReminderId is { } reminderId && _dueNow.FirstOrDefault(c => c.Id == reminderId) is { } match)
+        {
+            await AddAsync(match.Item, match.Id);
+        }
+    }
+
+    private bool IsChosen(string name) =>
+        Wizard.Draft.Items.Any(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase));
+
+    private async Task AddAsync(string name, Guid? reminderId = null)
+    {
+        _error = null;
+
+        try
+        {
+            if (IsChosen(name))
+            {
+                await Wizard.RemoveItemAsync(name);
+            }
+            else
+            {
+                await Wizard.AddItemAsync(name, reminderId);
+            }
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task AddCustomAsync()
+    {
+        await AddAsync(_custom);
+        _custom = string.Empty;
+    }
+
+    private Task RemoveAsync(string name) => Wizard.RemoveItemAsync(name);
+
+    private async Task NextAsync()
+    {
+        // The odometer prefills from the current reading here so step 2 opens ready (story L-2).
+        Wizard.Draft.Odometer ??= _vehicle!.CurrentOdometer;
+        await Wizard.PersistAsync();
+        Navigation.NavigateTo("/log/cost");
+    }
+}

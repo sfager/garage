@@ -1,0 +1,86 @@
+@using Garage.Application.ServiceLogging
+
+@* Story L-4: the progress indicator shows step position, and leaving asks whether to
+   discard rather than silently throwing the entry away. *@
+
+<div class="row-between">
+    <button type="button" class="btn btn-ghost btn-sm" @onclick="BackAsync">← @BackLabel</button>
+    <span class="mono">@Step/3 · @Title</span>
+</div>
+
+<div class="row" style="gap:4px">
+    @for (var i = 1; i <= 3; i++)
+    {
+        <span class="bar flex-1" style="@(i <= Step ? "background:var(--color-accent)" : null)"></span>
+    }
+</div>
+
+@if (_confirmingDiscard)
+{
+    <div class="dialog-backdrop" @onclick="() => _confirmingDiscard = false">
+        <div class="dialog" @onclick:stopPropagation="true">
+            <div class="dialog-title">Discard this entry?</div>
+            <p>You have started logging <strong>@Wizard.Draft.Summary</strong>. Leaving now throws it away.</p>
+            <div class="dialog-actions">
+                <button type="button" class="btn btn-secondary" @onclick="KeepAsync">Keep editing</button>
+                <button type="button" class="btn btn-danger" @onclick="DiscardAsync">Discard</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private ServiceLogWizard Wizard { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    [Parameter, EditorRequired] public int Step { get; set; }
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>Where back goes. Null on step 1, where back means leaving the wizard.</summary>
+    [Parameter] public string? PreviousStep { get; set; }
+
+    private bool _confirmingDiscard;
+
+    private string BackLabel => PreviousStep is null ? "Cancel" : "Back";
+
+    /// <summary>
+    /// Going back within the wizard keeps everything typed — the draft is the single
+    /// source of state, so no values are held in the page being left.
+    /// </summary>
+    private async Task BackAsync()
+    {
+        if (PreviousStep is not null)
+        {
+            await Wizard.PersistAsync();
+            Navigation.NavigateTo(PreviousStep);
+            return;
+        }
+
+        if (Wizard.Draft.IsMeaningful)
+        {
+            _confirmingDiscard = true;
+            return;
+        }
+
+        await LeaveAsync();
+    }
+
+    private async Task KeepAsync()
+    {
+        _confirmingDiscard = false;
+        await Wizard.PersistAsync();
+    }
+
+    private async Task DiscardAsync()
+    {
+        _confirmingDiscard = false;
+        await Wizard.DiscardAsync();
+        await LeaveAsync();
+    }
+
+    private Task LeaveAsync()
+    {
+        Navigation.NavigateTo("/");
+        return Task.CompletedTask;
+    }
+}

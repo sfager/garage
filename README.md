@@ -86,6 +86,18 @@ provider. Until one is configured, choosing "Plate" says so and goes to manual e
 To add one, implement `IVehicleLookupService` and swap the registration in
 `AddGarageInfrastructure`.
 
+## The service wizard's draft (story L-4)
+
+The three steps at `/log`, `/log/cost` and `/log/notes` share one `ServiceDraft`, held by
+the scoped `ServiceLogWizard` and persisted to protected local storage on the device. That
+is what makes Back lossless and lets an abandoned entry be resumed from Home — including
+after a restart. A draft is scratch work rather than a record, so it stays out of the
+database until the user saves.
+
+Receipts are an exception: the file is written to the store as soon as it is picked, so it
+survives the same restart, and only the `Document` row waits for the save. Discarding a
+draft deletes those files.
+
 ## Uploaded files
 
 Vehicle photos — and later receipts and documents — are written under
@@ -131,7 +143,7 @@ dotnet test
 | E1 · Garage and onboarding | V-1, V-2, V-4 | Done — verified against SQL Server 2022 |
 | E2 · Mileage | M-1, M-2, M-3 | Done — verified against SQL Server 2022 |
 | E3 · Maintenance and reminders | S-1 – S-6 | Done, except notification delivery — see below |
-| E4 · Logging a service | L-1 – L-4 | Not started |
+| E4 · Logging a service | L-1 – L-4 | Done — verified against SQL Server 2022 |
 | E5 · Fuel and running costs | G-1, G-2, G-3 | Not started |
 | E6 · Documents | D-1, D-2, D-3 | Not started |
 | E7 · Reports | R-1 – R-4 | Not started |

@@ -1,4 +1,3 @@
-using Garage.Domain.Repositories;
 using Garage.Application;
 using Garage.Application.Abstractions;
 using Garage.Infrastructure;
@@ -12,7 +11,8 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.StaticFiles;
-
+using Garage.Infrastructure.Persistence.Repositories;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +50,7 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 // Presentation-owned implementations of Application abstractions.
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<ISelectedVehicleStore, SelectedVehicleStore>();
+builder.Services.AddScoped<IServiceDraftStore, ServiceDraftStore>();
 
 // The Identity schema version is set by AddGarageInfrastructure, which owns the
 // migrations that have to match it.
@@ -97,7 +98,7 @@ app.MapGet($"{fileStoreOptions.RequestPath}/{{**storageKey}}", async (
         string storageKey,
         HttpContext http,
         UserManager<ApplicationUser> users,
-        IVehicleRepository vehicles,
+        [FromServices] VehicleRepository vehicles,
         IFileStore files,
         IContentTypeProvider contentTypes,
         CancellationToken cancellationToken) =>

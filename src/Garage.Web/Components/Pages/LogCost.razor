@@ -1,0 +1,172 @@
+@page "/log/cost"
+@attribute [Authorize]
+@using Garage.Application.Maintenance
+@using Garage.Application.ServiceLogging
+
+<PageTitle>Cost · Garage</PageTitle>
+
+@* Wireframe 1f, step 2: date, odometer, total, the optional parts/labour split and the shop. *@
+
+@if (_redirecting)
+{
+    <p class="mono">Nothing in progress — starting over…</p>
+}
+else
+{
+    <WizardHeader Step="2" Title="Cost" PreviousStep="/log" />
+
+    <h4 style="margin:0">@Wizard.Draft.Summary</h4>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-error">@_error</div>
+    }
+
+    <div class="stack">
+        <div class="field">
+            <label for="date">Date</label>
+            <input id="date" type="date" class="input" max="@Clock.Today.ToString("yyyy-MM-dd")"
+                   value="@Wizard.Draft.Date.ToString("yyyy-MM-dd")"
+                   @onchange="OnDateChanged" />
+        </div>
+
+        <div class="field">
+            <label for="odometer">Odometer</label>
+            <input id="odometer" type="number" class="input" value="@Wizard.Draft.Odometer"
+                   @onchange="e => Wizard.Draft.Odometer = ParseInt(e.Value)" />
+        </div>
+
+        <div class="field">
+            <label for="total">Total cost — required</label>
+            <input id="total" type="number" step="0.01" class="input input-lg" placeholder="$"
+                   value="@Wizard.Draft.TotalCost"
+                   @onchange="e => Wizard.Draft.TotalCost = ParseDecimal(e.Value)" />
+        </div>
+
+        <div class="row">
+            <div class="field flex-1">
+                <label for="parts">Parts</label>
+                <input id="parts" type="number" step="0.01" class="input" value="@Wizard.Draft.PartsCost"
+                       @onchange="e => Wizard.Draft.PartsCost = ParseDecimal(e.Value)" />
+            </div>
+            <div class="field flex-1">
+                <label for="labor">Labour</label>
+                <input id="labor" type="number" step="0.01" class="input" value="@Wizard.Draft.LaborCost"
+                       @onchange="e => Wizard.Draft.LaborCost = ParseDecimal(e.Value)" />
+            </div>
+        </div>
+
+        @if (SplitExceedsTotal)
+        {
+            <div class="alert alert-error">Parts and labour add up to more than the total cost.</div>
+        }
+
+        <div class="field">
+            <label for="shop">Shop</label>
+            @* Story L-2: previously used shops are offered, and anything else can be typed. *@
+            <input id="shop" class="input" list="shops" placeholder="Where?" value="@Wizard.Draft.Shop"
+                   @onchange="e => Wizard.Draft.Shop = e.Value?.ToString()" />
+            <datalist id="shops">
+                @foreach (var shop in _shops)
+                {
+                    <option value="@shop"></option>
+                }
+            </datalist>
+        </div>
+
+        <div class="field">
+            <label>Category</label>
+            <select class="input" value="@Wizard.Draft.Category"
+                    @onchange="e => Wizard.Draft.Category = Enum.Parse<ServiceCategory>(e.Value?.ToString() ?? nameof(ServiceCategory.Other))">
+                @foreach (var category in Enum.GetValues<ServiceCategory>())
+                {
+                    <option value="@category" selected="@(category == Wizard.Draft.Category)">@Humanize(category)</option>
+                }
+            </select>
+            <div class="mono">Chosen from the jobs above; change it if the visit was something else.</div>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-block" @onclick="NextAsync">Next — notes</button>
+    </div>
+}
+
+@code {
+    [Inject] private ServiceLogWizard Wizard { get; set; } = default!;
+    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
+    [Inject] private VehicleContext Context { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IClock Clock { get; set; } = default!;
+
+    private IReadOnlyList<string> _shops = [];
+    private string? _error;
+    private bool _redirecting;
+
+    private bool SplitExceedsTotal =>
+        (Wizard.Draft.PartsCost ?? 0m) + (Wizard.Draft.LaborCost ?? 0m) > (Wizard.Draft.TotalCost ?? 0m)
+        && Wizard.Draft.TotalCost is not null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Context.EnsureLoadedAsync();
+
+        if (Context.Selected is not { } vehicle)
+        {
+            _redirecting = true;
+            Navigation.NavigateTo("/log");
+            return;
+        }
+
+        await Wizard.EnsureLoadedAsync(vehicle.Id);
+
+        // Landing here directly with nothing picked yet has no meaning — go back to step 1.
+        if (!Wizard.Draft.HasItems)
+        {
+            _redirecting = true;
+            Navigation.NavigateTo("/log");
+            return;
+        }
+
+        Wizard.Draft.Odometer ??= vehicle.CurrentOdometer;
+        _shops = await Maintenance.ListShopsAsync();
+    }
+
+    private void OnDateChanged(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
+        {
+            Wizard.Draft.Date = date;
+        }
+    }
+
+    private static int? ParseInt(object? value) =>
+        int.TryParse(value?.ToString(), out var parsed) ? parsed : null;
+
+    private static decimal? ParseDecimal(object? value) =>
+        decimal.TryParse(value?.ToString(), out var parsed) ? parsed : null;
+
+    private static string Humanize(ServiceCategory category) => category switch
+    {
+        ServiceCategory.ScheduledService => "Scheduled service",
+        _ => category.ToString()
+    };
+
+    private async Task NextAsync()
+    {
+        _error = null;
+
+        if (Wizard.Draft.TotalCost is null)
+        {
+            _error = "Enter the total cost.";
+            return;
+        }
+
+        if (SplitExceedsTotal)
+        {
+            _error = "Parts and labour add up to more than the total cost.";
+            return;
+        }
+
+        await Wizard.PersistAsync();
+        Navigation.NavigateTo("/log/notes");
+    }
+}

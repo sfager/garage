@@ -196,6 +196,13 @@ public class MaintenanceService(
         return await serviceRecords.GetForHouseholdAsync(recordId, householdId, cancellationToken);
     }
 
+    /// <summary>Story L-2: the shop field remembers where work has been done before.</summary>
+    public async Task<IReadOnlyList<string>> ListShopsAsync(CancellationToken cancellationToken = default)
+    {
+        var householdId = await currentUser.GetHouseholdIdAsync(cancellationToken);
+        return await serviceRecords.ListShopsAsync(householdId, cancellationToken);
+    }
+
     /// <summary>The vehicle's rate, which every projection depends on (story S-3).</summary>
     public async Task<double?> GetMilesPerDayAsync(Guid vehicleId, CancellationToken cancellationToken = default)
     {
