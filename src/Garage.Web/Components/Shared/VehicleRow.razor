@@ -1,0 +1,118 @@
+@* One vehicle in the garage list, with its archive / restore / delete actions.
+   Story V-4: delete states what will be lost before it happens. *@
+
+<div class="card @(Vehicle.IsArchived ? null : "card-accent")">
+    <div class="row-between">
+        <div>
+            <div class="card-title">@Vehicle.Nickname</div>
+            <div class="mono">@Vehicle.DisplayName</div>
+        </div>
+        @if (Vehicle.IsArchived)
+        {
+            <span class="tag tag-neutral">ARCHIVED</span>
+        }
+    </div>
+
+    <div class="mono">@Vehicle.CurrentOdometer.ToString("N0") mi · as of @Vehicle.CurrentOdometerDate.ToString("MMM d, yyyy")</div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-error">@_error</div>
+    }
+
+    <div class="row" style="flex-wrap:wrap">
+        <a class="btn btn-secondary btn-sm" href="@($"/vehicles/{Vehicle.Id}/edit")">Edit</a>
+
+        @if (Vehicle.IsArchived)
+        {
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="RestoreAsync">Restore</button>
+        }
+        else
+        {
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="ArchiveAsync">Archive</button>
+        }
+
+        <button type="button" class="btn btn-danger btn-sm" @onclick="OpenDeleteAsync">Delete</button>
+    </div>
+</div>
+
+@if (_impact is not null)
+{
+    <div class="dialog-backdrop" @onclick="CloseDelete">
+        <div class="dialog" @onclick:stopPropagation="true">
+            <div class="dialog-title">Delete @_impact.Nickname?</div>
+            <div>
+                <p>This cannot be undone. You will lose:</p>
+                <div class="li"><span>Service and repair records</span><span>@_impact.ServiceRecords</span></div>
+                <div class="li"><span>Fuel fill-ups</span><span>@_impact.FuelEntries</span></div>
+                <div class="li"><span>Odometer readings</span><span>@_impact.OdometerReadings</span></div>
+                <div class="li"><span>Trips</span><span>@_impact.Trips</span></div>
+                <div class="li"><span>Reminders</span><span>@_impact.Reminders</span></div>
+                <div class="li"><span>Documents and receipts</span><span>@_impact.Documents</span></div>
+                <div class="li"><span><strong>Spending history</strong></span><span><strong>@_impact.TotalSpend.ToString("C0")</strong></span></div>
+            </div>
+            <p class="mono">
+                To keep the history but hide the vehicle, archive it instead.
+            </p>
+            <div class="dialog-actions">
+                <button type="button" class="btn btn-secondary" @onclick="CloseDelete">Cancel</button>
+                <button type="button" class="btn btn-danger" disabled="@_busy" @onclick="DeleteAsync">
+                    Delete @_impact.TotalRecords records
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private VehicleService Vehicles { get; set; } = default!;
+    [Inject] private VehicleContext Context { get; set; } = default!;
+
+    [Parameter, EditorRequired] public VehicleSummary Vehicle { get; set; } = default!;
+
+    /// <summary>Raised after a change so the parent list reloads.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private VehicleDeletionImpact? _impact;
+    private string? _error;
+    private bool _busy;
+
+    private async Task ArchiveAsync() => await RunAsync(() => Vehicles.ArchiveAsync(Vehicle.Id));
+
+    private async Task RestoreAsync() => await RunAsync(() => Vehicles.RestoreAsync(Vehicle.Id));
+
+    private async Task OpenDeleteAsync() => _impact = await Vehicles.GetDeletionImpactAsync(Vehicle.Id);
+
+    private void CloseDelete() => _impact = null;
+
+    private async Task DeleteAsync()
+    {
+        await RunAsync(() => Vehicles.DeleteAsync(Vehicle.Id));
+        _impact = null;
+    }
+
+    /// <summary>
+    /// Every action changes which vehicles the switcher should offer, so the shared
+    /// context is reloaded before the parent list is told to refresh.
+    /// </summary>
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            await action();
+            await Context.ReloadAsync();
+            await OnChanged.InvokeAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

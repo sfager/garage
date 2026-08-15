@@ -1,0 +1,219 @@
+@page "/vehicles/{VehicleId:guid}/edit"
+@attribute [Authorize]
+
+<PageTitle>Edit vehicle · Garage</PageTitle>
+
+@* Story V-4: edit covers nickname, details and photo. *@
+
+<div class="row-between">
+    <a class="btn btn-ghost btn-sm" href="/vehicles">← Garage</a>
+</div>
+
+@if (_loading)
+{
+    <p class="mono">Loading…</p>
+}
+else if (_notFound)
+{
+    <div class="empty">
+        <h4>Not found</h4>
+        <p class="mono">That vehicle is not in your garage.</p>
+        <a class="btn btn-secondary" href="/vehicles">Back to the garage</a>
+    </div>
+}
+else
+{
+    <h3>@_request.Nickname</h3>
+
+    <div class="stack">
+        <div class="sec">Photo</div>
+
+        @if (_photoUrl is not null)
+        {
+            <img src="@_photoUrl" alt="@_request.Nickname" style="max-height:200px;object-fit:cover;border:1px solid var(--color-divider)" />
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="RemovePhotoAsync">Remove photo</button>
+        }
+        else
+        {
+            <div class="ph" style="height:120px"><span class="mono">no photo yet</span></div>
+        }
+
+        <InputFile OnChange="UploadPhotoAsync" accept="image/*" class="input" />
+        @if (_photoError is not null)
+        {
+            <div class="alert alert-error">@_photoError</div>
+        }
+
+        <div class="hr"></div>
+
+        <EditForm Model="_request" OnValidSubmit="SaveAsync" FormName="edit-vehicle">
+            <DataAnnotationsValidator />
+
+            <div class="stack">
+                @if (_error is not null)
+                {
+                    <div class="alert alert-error">@_error</div>
+                }
+                @if (_saved)
+                {
+                    <div class="alert alert-info">Saved.</div>
+                }
+
+                <div class="field">
+                    <label for="nickname">Nickname</label>
+                    <InputText id="nickname" class="input" @bind-Value="_request.Nickname" />
+                    <ValidationMessage For="() => _request.Nickname" />
+                </div>
+
+                <div class="row">
+                    <div class="field flex-1">
+                        <label for="year">Year</label>
+                        <InputNumber id="year" class="input" @bind-Value="_request.Year" />
+                    </div>
+                    <div class="field flex-1">
+                        <label for="make">Make</label>
+                        <InputText id="make" class="input" @bind-Value="_request.Make" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="field flex-1">
+                        <label for="model">Model</label>
+                        <InputText id="model" class="input" @bind-Value="_request.Model" />
+                    </div>
+                    <div class="field flex-1">
+                        <label for="trim">Trim</label>
+                        <InputText id="trim" class="input" @bind-Value="_request.Trim" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="engine">Engine</label>
+                    <InputText id="engine" class="input" @bind-Value="_request.Engine" />
+                </div>
+
+                <div class="row">
+                    <div class="field flex-1">
+                        <label for="vin">VIN</label>
+                        <InputText id="vin" class="input" @bind-Value="_request.Vin" />
+                        <ValidationMessage For="() => _request.Vin" />
+                    </div>
+                    <div class="field flex-1">
+                        <label for="plate">Plate</label>
+                        <InputText id="plate" class="input" @bind-Value="_request.LicensePlate" />
+                    </div>
+                </div>
+
+                <ValidationMessage For="() => _request.Year" />
+
+                <button type="submit" class="btn btn-primary btn-block" disabled="@_busy">
+                    @(_busy ? "Saving…" : "Save changes")
+                </button>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@code {
+    /// <summary>Photos are phone camera shots; anything larger is almost certainly a mistake.</summary>
+    private const long MaxPhotoBytes = 8 * 1024 * 1024;
+
+    [Inject] private VehicleService Vehicles { get; set; } = default!;
+    [Inject] private VehicleContext Context { get; set; } = default!;
+    [Inject] private IFileStore FileStore { get; set; } = default!;
+
+    [Parameter] public Guid VehicleId { get; set; }
+
+    private EditVehicleRequest _request = new();
+    private string? _photoUrl;
+    private string? _error;
+    private string? _photoError;
+    private bool _saved;
+    private bool _loading = true;
+    private bool _notFound;
+    private bool _busy;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var vehicle = await Vehicles.GetAsync(VehicleId);
+
+        if (vehicle is null)
+        {
+            _notFound = true;
+            _loading = false;
+            return;
+        }
+
+        _request = new EditVehicleRequest
+        {
+            Id = vehicle.Id,
+            Nickname = vehicle.Nickname,
+            Year = vehicle.Year,
+            Make = vehicle.Make,
+            Model = vehicle.Model,
+            Trim = vehicle.Trim,
+            Engine = vehicle.Engine,
+            Vin = vehicle.Vin,
+            LicensePlate = vehicle.LicensePlate
+        };
+
+        _photoUrl = vehicle.PhotoPath is null ? null : FileStore.GetUrl(vehicle.PhotoPath);
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        _error = null;
+        _saved = false;
+
+        try
+        {
+            await Vehicles.UpdateAsync(_request);
+            await Context.ReloadAsync();
+            _saved = true;
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task UploadPhotoAsync(InputFileChangeEventArgs e)
+    {
+        _photoError = null;
+        var file = e.File;
+
+        if (file.Size > MaxPhotoBytes)
+        {
+            _photoError = "That photo is larger than 8 MB.";
+            return;
+        }
+
+        if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            _photoError = "Choose an image file.";
+            return;
+        }
+
+        await using var stream = file.OpenReadStream(MaxPhotoBytes);
+        await Vehicles.SetPhotoAsync(VehicleId, stream, file.Name);
+
+        await Context.ReloadAsync();
+        await LoadAsync();
+    }
+
+    private async Task RemovePhotoAsync()
+    {
+        await Vehicles.RemovePhotoAsync(VehicleId);
+        await Context.ReloadAsync();
+        await LoadAsync();
+    }
+}

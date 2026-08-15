@@ -1,0 +1,62 @@
+@page "/vehicles"
+@attribute [Authorize]
+
+<PageTitle>Garage · Garage</PageTitle>
+
+@* Story V-4. Archived vehicles stay listed here — they are only hidden from the
+   switcher — so their history remains reachable. *@
+
+<div class="row-between">
+    <h3 style="margin:0">Your garage</h3>
+    <a class="btn btn-primary btn-sm" href="/vehicles/add">＋ Add</a>
+</div>
+
+@if (_loading)
+{
+    <p class="mono">Loading…</p>
+}
+else if (_vehicles.Count == 0)
+{
+    <div class="empty">
+        <h4>No vehicles yet</h4>
+        <a class="btn btn-primary" href="/vehicles/add">Add a vehicle</a>
+    </div>
+}
+else
+{
+    <div class="stack">
+        @foreach (var vehicle in _vehicles.Where(v => !v.IsArchived))
+        {
+            <VehicleRow Vehicle="vehicle" OnChanged="ReloadAsync" />
+        }
+
+        @if (_vehicles.Any(v => v.IsArchived))
+        {
+            <div class="hr"></div>
+            <div class="sec">Archived — hidden from the switcher, kept in reports</div>
+
+            @foreach (var vehicle in _vehicles.Where(v => v.IsArchived))
+            {
+                <VehicleRow Vehicle="vehicle" OnChanged="ReloadAsync" />
+            }
+        }
+    </div>
+}
+
+@code {
+    // Named "Garage" rather than "Vehicles": a member may not share its enclosing
+    // component's name, and this page compiles to a class called Vehicles.
+    [Inject] private VehicleService Garage { get; set; } = default!;
+
+    private IReadOnlyList<VehicleSummary> _vehicles = [];
+    private bool _loading = true;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        _loading = true;
+        _vehicles = await Garage.ListAllAsync();
+        _loading = false;
+    }
+}

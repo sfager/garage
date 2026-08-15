@@ -2,6 +2,7 @@ using Garage.Application.Abstractions;
 using Garage.Infrastructure.Persistence;
 using Garage.Infrastructure.Persistence.Repositories;
 using Garage.Infrastructure.Services;
+using Garage.Infrastructure.Storage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,7 +24,10 @@ public static class DependencyInjection
     /// Wires the SQL Server context, the repository implementations and the ambient
     /// services the Application layer declares but does not implement.
     /// </summary>
-    public static IServiceCollection AddGarageInfrastructure(this IServiceCollection services, string connectionString)
+    public static IServiceCollection AddGarageInfrastructure(
+        this IServiceCollection services,
+        string connectionString,
+        FileStoreOptions? fileStore = null)
     {
         services.Configure<IdentityOptions>(ConfigureIdentitySchema);
 
@@ -39,6 +43,17 @@ public static class DependencyInjection
         services.AddScoped<IVehicleRepository, VehicleRepository>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<GarageDbSeeder>();
+
+        services.AddSingleton(fileStore ?? new FileStoreOptions());
+        services.AddSingleton<IFileStore, LocalFileStore>();
+
+        // vPIC is a public service, so a slow or missing response must not hold a page
+        // open; the lookup reports failure and the user types the details instead.
+        services.AddHttpClient<IVehicleLookupService, NhtsaVehicleLookupService>(client =>
+        {
+            client.BaseAddress = new Uri("https://vpic.nhtsa.dot.gov/api/");
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
 
         return services;
     }
