@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<GarageDbContext>());
         services.AddScoped<IHouseholdRepository, HouseholdRepository>();
         services.AddScoped<IVehicleRepository, VehicleRepository>();
+        services.AddScoped<IMileageRepository, MileageRepository>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<GarageDbSeeder>();
 

@@ -1,0 +1,136 @@
+@using Garage.Application.Mileage
+
+@* Story M-2: a trip takes a date, a distance or a start/end pair, a label and a purpose. *@
+
+<div class="dialog-backdrop" @onclick="OnClose">
+    <div class="dialog" @onclick:stopPropagation="true">
+        <div class="dialog-title">Log a trip</div>
+
+        <EditForm Model="_request" OnValidSubmit="SaveAsync" FormName="trip">
+            <DataAnnotationsValidator />
+
+            <div class="stack">
+                @if (_error is not null)
+                {
+                    <div class="alert alert-error">@_error</div>
+                }
+
+                <div class="field">
+                    <label for="trip-date">Date</label>
+                    <InputDate id="trip-date" class="input" @bind-Value="_date" max="@Clock.Today.ToString("yyyy-MM-dd")" />
+                </div>
+
+                <div class="field">
+                    <label for="trip-label">Label</label>
+                    <InputText id="trip-label" class="input" @bind-Value="_request.Label" placeholder="Home → Portland" />
+                    <ValidationMessage For="() => _request.Label" />
+                </div>
+
+                <div class="field">
+                    <label>Purpose</label>
+                    <div class="seg seg-block">
+                        <button type="button" class="seg-opt @(_request.Purpose == TripPurpose.Personal ? "on" : null)"
+                                @onclick="() => _request.Purpose = TripPurpose.Personal">Personal</button>
+                        <button type="button" class="seg-opt @(_request.Purpose == TripPurpose.Business ? "on" : null)"
+                                @onclick="() => _request.Purpose = TripPurpose.Business">Business</button>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>How do you want to enter it?</label>
+                    <div class="seg seg-block">
+                        <button type="button" class="seg-opt @(_request.Mode == TripEntryMode.Distance ? "on" : null)"
+                                @onclick="() => _request.Mode = TripEntryMode.Distance">Distance</button>
+                        <button type="button" class="seg-opt @(_request.Mode == TripEntryMode.StartAndEnd ? "on" : null)"
+                                @onclick="SwitchToOdometers">Start / end</button>
+                    </div>
+                </div>
+
+                @if (_request.Mode == TripEntryMode.Distance)
+                {
+                    <div class="field">
+                        <label for="trip-distance">Distance in miles</label>
+                        <InputNumber id="trip-distance" class="input input-lg" @bind-Value="_request.Distance" placeholder="148" />
+                        <ValidationMessage For="() => _request.Distance" />
+                        <div class="mono">Starts from @CurrentOdometer.ToString("N0") mi</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="row">
+                        <div class="field flex-1">
+                            <label for="trip-start">Start odometer</label>
+                            <InputNumber id="trip-start" class="input" @bind-Value="_request.StartOdometer" />
+                        </div>
+                        <div class="field flex-1">
+                            <label for="trip-end">End odometer</label>
+                            <InputNumber id="trip-end" class="input" @bind-Value="_request.EndOdometer" />
+                        </div>
+                    </div>
+
+                    @if (_request.StartOdometer is { } s && _request.EndOdometer is { } e && e > s)
+                    {
+                        <div class="mono">@((e - s).ToString("N0")) mi</div>
+                    }
+                }
+
+                <div class="dialog-actions">
+                    <button type="button" class="btn btn-secondary" @onclick="OnClose">Cancel</button>
+                    <button type="submit" class="btn btn-primary" disabled="@_busy">@(_busy ? "Saving…" : "Log trip")</button>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [Inject] private MileageService Mileage { get; set; } = default!;
+    [Inject] private IClock Clock { get; set; } = default!;
+
+    [Parameter, EditorRequired] public Guid VehicleId { get; set; }
+
+    /// <summary>Where a distance-entered trip starts from, and the default start odometer.</summary>
+    [Parameter, EditorRequired] public int CurrentOdometer { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private readonly RecordTripRequest _request = new();
+    private DateTime _date;
+    private string? _error;
+    private bool _busy;
+
+    protected override void OnInitialized()
+    {
+        _date = Clock.Today.ToDateTime(TimeOnly.MinValue);
+        _request.Date = Clock.Today;
+    }
+
+    /// <summary>Prefills the pair from where the vehicle stands, so only the end needs typing.</summary>
+    private void SwitchToOdometers()
+    {
+        _request.Mode = TripEntryMode.StartAndEnd;
+        _request.StartOdometer ??= CurrentOdometer;
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            _request.Date = DateOnly.FromDateTime(_date);
+            await Mileage.RecordTripAsync(VehicleId, _request);
+            await OnSaved.InvokeAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -1,4 +1,5 @@
 using Garage.Application.Abstractions;
+using Garage.Domain.Common;
 using Garage.Domain.Entities;
 using Garage.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -30,5 +31,17 @@ public class GarageDbContext(DbContextOptions<GarageDbContext> options)
         builder.HasDefaultSchema("garage");
 
         builder.ApplyConfigurationsFromAssembly(typeof(GarageDbContext).Assembly);
+
+        // Every aggregate assigns its own Id in the constructor. Without this, EF sees a
+        // non-default key on a child discovered through a tracked parent's navigation,
+        // concludes the row already exists, and issues an UPDATE that matches nothing
+        // instead of an INSERT.
+        foreach (var entityType in builder.Model.GetEntityTypes()
+                     .Where(t => typeof(Entity).IsAssignableFrom(t.ClrType)))
+        {
+            builder.Entity(entityType.ClrType)
+                .Property(nameof(Entity.Id))
+                .ValueGeneratedNever();
+        }
     }
 }

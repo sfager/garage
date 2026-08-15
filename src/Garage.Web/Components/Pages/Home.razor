@@ -1,11 +1,12 @@
 @page "/"
 @attribute [Authorize]
+@using Garage.Application.Mileage
+@using Garage.Domain.Services
 @implements IDisposable
 
 <PageTitle>Garage</PageTitle>
 
-@* Wireframe 1a. The reminder cards and the cost/MPG strip arrive with E3 and E5;
-   what is here now is the switcher, the vehicle in focus and its odometer. *@
+@* Wireframe 1a. The reminder cards and the cost/MPG strip arrive with E3 and E5. *@
 
 <VehicleSwitcher />
 
@@ -45,8 +46,15 @@ else
             </div>
             <div class="mono">as of @vehicle.CurrentOdometerDate.ToString("MMM d, yyyy")</div>
         </div>
-        <a class="btn btn-primary" href="/mileage">Update</a>
+        <button type="button" class="btn btn-primary" @onclick="() => _showUpdate = !_showUpdate">
+            @(_showUpdate ? "Close" : "Update")
+        </button>
     </div>
+
+    @if (_showUpdate)
+    {
+        <OdometerCard VehicleId="vehicle.Id" Summary="_summary" OnRecorded="OnRecordedAsync" />
+    }
 
     <div class="hr"></div>
 
@@ -59,17 +67,37 @@ else
 @code {
     [Inject] private VehicleContext Context { get; set; } = default!;
     [Inject] private IFileStore FileStore { get; set; } = default!;
+    [Inject] private MileageService Mileage { get; set; } = default!;
 
+    private MileageSummary? _summary;
     private bool _loading = true;
+    private bool _showUpdate;
 
     protected override async Task OnInitializedAsync()
     {
         Context.Changed += OnContextChanged;
         await Context.EnsureLoadedAsync();
+        await LoadSummaryAsync();
         _loading = false;
     }
 
-    private Task OnContextChanged() => InvokeAsync(StateHasChanged);
+    private async Task OnContextChanged()
+    {
+        await LoadSummaryAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadSummaryAsync() =>
+        _summary = Context.Selected is { } vehicle
+            ? await Mileage.GetSummaryAsync(vehicle.Id)
+            : null;
+
+    /// <summary>Story M-1: the new reading has to show everywhere immediately.</summary>
+    private async Task OnRecordedAsync()
+    {
+        await Context.RefreshSelectedAsync();
+        await LoadSummaryAsync();
+    }
 
     public void Dispose() => Context.Changed -= OnContextChanged;
 }

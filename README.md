@@ -73,6 +73,28 @@ Registering a new account creates a household for that user on first use, so a n
 sign-up starts with an empty garage. To let a second person share the same cars, point
 their `AspNetUsers.HouseholdId` at the existing household.
 
+## VIN lookup
+
+Story V-1 decodes VINs through [NHTSA vPIC](https://vpic.nhtsa.dot.gov/api/), which is
+public, free and needs no API key. It only covers vehicles sold in the United States,
+which matches the miles-and-gallons decision. The call has a 10-second timeout and never
+throws: any failure — unknown VIN, service down, no network — returns a failed result and
+the UI falls back to manual entry with whatever was already typed.
+
+Plate lookup has no free equivalent; turning a plate into a VIN needs a commercial data
+provider. Until one is configured, choosing "Plate" says so and goes to manual entry.
+To add one, implement `IVehicleLookupService` and swap the registration in
+`AddGarageInfrastructure`.
+
+## Uploaded files
+
+Vehicle photos — and later receipts and documents — are written under
+`Garage:FileStorageRoot` with generated storage keys, never the client's filename.
+They are served from `/files/{key}` by an authorized endpoint that checks the file
+belongs to a vehicle in the caller's household, so they are not readable by another
+household even if the key leaks. A key the caller does not own returns 404 rather than
+403, so the endpoint does not confirm that a file exists.
+
 ## Working with the schema
 
 Migrations live in `src/Garage.Infrastructure/Persistence/Migrations`.
@@ -95,8 +117,8 @@ dotnet test
 | Epic | Stories | State |
 | --- | --- | --- |
 | E0 · Foundations | F-1, F-2, F-3 | Done — verified against SQL Server 2022 |
-| E1 · Garage and onboarding | V-1, V-2, V-4 | Not started |
-| E2 · Mileage | M-1, M-2, M-3 | Not started |
+| E1 · Garage and onboarding | V-1, V-2, V-4 | Done — verified against SQL Server 2022 |
+| E2 · Mileage | M-1, M-2, M-3 | Done — verified against SQL Server 2022 |
 | E3 · Maintenance and reminders | S-1 – S-6 | Not started |
 | E4 · Logging a service | L-1 – L-4 | Not started |
 | E5 · Fuel and running costs | G-1, G-2, G-3 | Not started |
