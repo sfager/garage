@@ -93,7 +93,7 @@ public class ReminderConfiguration : IEntityTypeConfiguration<Reminder>
         builder.HasKey(r => r.Id);
         builder.Property(r => r.Item).HasMaxLength(120).IsRequired();
 
-        // All four are projected from the intervals and the anchor.
+        // All four are projected from the intervals, the anchor and any fixed date.
         builder.Ignore(r => r.DueOdometer);
         builder.Ignore(r => r.DueDate);
         builder.Ignore(r => r.TriggerDescription);

@@ -1,5 +1,6 @@
 @page "/"
 @attribute [Authorize]
+@using Garage.Application.Documents
 @using Garage.Application.Fuel
 @using Garage.Application.Maintenance
 @using Garage.Application.Mileage
@@ -75,6 +76,20 @@ else
 
     <div class="hr"></div>
 
+    @* Story D-2: paperwork lapsing within 30 days is as urgent as an overdue service,
+       so it sits alongside them rather than only on the documents screen [1a]. *@
+    @foreach (var expiring in _expiring)
+    {
+        <div class="card card-accent">
+            <div class="card-kicker">
+                @(expiring.Document.HasExpired ? "Expired" : $"Expires in {expiring.Document.DaysUntilExpiry} days")
+            </div>
+            <div class="card-title">@expiring.Document.Title</div>
+            <div class="mono">@expiring.VehicleNickname · @expiring.Document.ExpiresOn?.ToString("MMM d, yyyy")</div>
+            <a class="btn btn-secondary btn-sm" href="@($"/documents/{expiring.Document.Id}")">Open</a>
+        </div>
+    }
+
     @* Wireframe 1a: the overdue item gets a card with its actions; everything else
        due soon is listed underneath. *@
     @foreach (var card in _overdue)
@@ -143,9 +158,11 @@ else
     [Inject] private MaintenanceService Maintenance { get; set; } = default!;
     [Inject] private ServiceLogWizard Wizard { get; set; } = default!;
     [Inject] private FuelService FuelService { get; set; } = default!;
+    [Inject] private DocumentService Docs { get; set; } = default!;
 
     private bool _resumable;
     private FuelStats? _stats;
+    private IReadOnlyList<ExpiringDocument> _expiring = [];
     private MileageSummary? _summary;
     private IReadOnlyList<ReminderCard> _overdue = [];
     private IReadOnlyList<ReminderCard> _comingUp = [];
@@ -175,6 +192,7 @@ else
             _overdue = [];
             _comingUp = [];
             _stats = null;
+            _expiring = [];
             return;
         }
 
@@ -190,6 +208,7 @@ else
         _comingUp = [.. cards.Where(c => c.Band == DueBand.DueSoon).Take(3)];
 
         _stats = (await FuelService.GetScreenAsync(vehicle.Id, FuelRange.TwelveMonths)).Stats;
+        _expiring = await Docs.ListExpiringAsync();
     }
 
     private void OpenSnooze(ReminderCard card) => _snoozing = card;

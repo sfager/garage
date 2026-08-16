@@ -44,3 +44,4 @@ public class EditVehicleRequest
     [StringLength(17)] public string? Vin { get; set; }
     [StringLength(12)] public string? LicensePlate { get; set; }
 }
+

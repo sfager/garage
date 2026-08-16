@@ -1,0 +1,158 @@
+@using Garage.Application.Documents
+
+@* Story D-1: upload or photograph a file, giving it a type and an optional expiry. *@
+
+<div class="dialog-backdrop" @onclick="OnClose">
+    <div class="dialog" @onclick:stopPropagation="true">
+        <div class="dialog-title">Add a document</div>
+
+        <EditForm Model="_request" OnValidSubmit="UploadAsync" FormName="document-upload">
+            <DataAnnotationsValidator />
+
+            <div class="stack">
+                @if (_error is not null)
+                {
+                    <div class="alert alert-error">@_error</div>
+                }
+
+                <div class="field">
+                    <label for="doc-type">Type</label>
+                    <select id="doc-type" class="input" value="@_request.Type"
+                            @onchange="OnTypeChanged">
+                        @foreach (var type in Types)
+                        {
+                            <option value="@type" selected="@(type == _request.Type)">@Humanize(type)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label for="doc-title">Title</label>
+                    <InputText id="doc-title" class="input" @bind-Value="_request.Title" />
+                    <ValidationMessage For="() => _request.Title" />
+                </div>
+
+                <div class="field">
+                    <label for="doc-expiry">Expires on — optional</label>
+                    <InputDate id="doc-expiry" class="input" @bind-Value="_expiry" />
+                    <div class="mono">We will warn you 30 days before it lapses.</div>
+                </div>
+
+                <div class="field">
+                    <label for="doc-file">File or photo</label>
+                    @* capture lets a phone open the camera straight from here. *@
+                    <InputFile id="doc-file" class="input" OnChange="OnFileChanged"
+                               accept="image/*,application/pdf" capture="environment" />
+                    @if (_file is not null)
+                    {
+                        <div class="mono">@_file.Name · @(_file.Size / 1024) KB</div>
+                    }
+                </div>
+
+                <div class="dialog-actions">
+                    <button type="button" class="btn btn-secondary" @onclick="OnClose">Cancel</button>
+                    <button type="submit" class="btn btn-primary" disabled="@(_busy || _file is null)">
+                        @(_busy ? "Uploading…" : "Add document")
+                    </button>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private const long MaxBytes = 20 * 1024 * 1024;
+
+    private static readonly DocumentType[] Types =
+    [
+        DocumentType.Insurance,
+        DocumentType.Registration,
+        DocumentType.Title,
+        DocumentType.Inspection,
+        DocumentType.Other
+    ];
+
+    [Inject] private DocumentService Docs { get; set; } = default!;
+
+    [Parameter, EditorRequired] public Guid VehicleId { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnUploaded { get; set; }
+
+    private readonly DocumentUploadRequest _request = new();
+    private IBrowserFile? _file;
+    private DateTime? _expiry;
+    private string? _error;
+    private bool _busy;
+
+    protected override void OnInitialized() => _request.Title = Humanize(_request.Type);
+
+    /// <summary>The title follows the type until the user types their own.</summary>
+    private void OnTypeChanged(ChangeEventArgs e)
+    {
+        var previous = _request.Type;
+
+        if (Enum.TryParse<DocumentType>(e.Value?.ToString(), out var type))
+        {
+            _request.Type = type;
+
+            if (string.IsNullOrWhiteSpace(_request.Title) || _request.Title == Humanize(previous))
+            {
+                _request.Title = Humanize(type);
+            }
+        }
+    }
+
+    private void OnFileChanged(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        var file = e.File;
+
+        if (file.Size > MaxBytes)
+        {
+            _error = "That file is larger than 20 MB.";
+            _file = null;
+            return;
+        }
+
+        _file = file;
+    }
+
+    private async Task UploadAsync()
+    {
+        if (_file is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            _request.ExpiresOn = _expiry is { } date ? DateOnly.FromDateTime(date) : null;
+
+            await using var stream = _file.OpenReadStream(MaxBytes);
+            await Docs.UploadAsync(VehicleId, _request, stream, _file.Name, _file.ContentType, _file.Size);
+
+            await OnUploaded.InvokeAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string Humanize(DocumentType type) => type switch
+    {
+        DocumentType.Insurance => "Insurance",
+        DocumentType.Registration => "Registration",
+        DocumentType.Title => "Title",
+        DocumentType.Inspection => "Inspection",
+        DocumentType.Receipt => "Receipt",
+        _ => "Other"
+    };
+}
