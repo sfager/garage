@@ -1,3 +1,4 @@
+using Garage.Application.Abstractions;
 using Garage.Domain.Entities;
 using Garage.Domain.Repositories;
 using Microsoft.EntityFrameworkCore;

@@ -195,6 +195,16 @@ public class Reminder : Entity
         }
     }
 
+    /// <summary>
+    /// True while a snooze is still running. A snooze is a request not to be told for a
+    /// while, so it quietens the item as a whole — deferring by distance would otherwise
+    /// leave an already-passed time trigger firing, which is not what anyone means by
+    /// "remind me in 500 miles".
+    /// </summary>
+    public bool IsSnoozed(int currentOdometer, DateOnly today) =>
+        (SnoozedToOdometer is { } odometer && currentOdometer < odometer)
+        || (SnoozedToDate is { } date && today < date);
+
     public void Dismiss() => IsDismissed = true;
 
     public void Reinstate() => IsDismissed = false;

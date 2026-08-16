@@ -1,0 +1,208 @@
+@page "/settings/notifications"
+@attribute [Authorize]
+@using Garage.Application.Notifications
+
+<PageTitle>Notifications · Garage</PageTitle>
+
+@* Story S-5: the household decides which browsers get told when something falls due.
+   The per-reminder switches live on the reminders screen [1k]. *@
+
+<div class="row-between">
+    <a class="btn btn-ghost btn-sm" href="/service">← Maintenance</a>
+    <span class="mono">Notifications</span>
+</div>
+
+<h3 style="margin:0">Notifications</h3>
+<p class="mono">
+    We will tell you when a reminder falls due or a document is about to expire, whether
+    or not the app is open.
+</p>
+
+@if (!_configured)
+{
+    <div class="alert alert-error">
+        Push is not configured on the server — no VAPID keys are set, so nothing can be
+        sent. See the README for how to generate a pair.
+    </div>
+}
+else
+{
+    @if (_message is not null)
+    {
+        <div class="alert @(_isError ? "alert-error" : "alert-info")">@_message</div>
+    }
+
+    <div class="card card-accent">
+        <div class="card-kicker">This browser</div>
+        <div class="card-title">@StatusTitle</div>
+        <div class="mono">@StatusDetail</div>
+
+        <div class="row" style="flex-wrap:wrap">
+            @if (_subscribedHere)
+            {
+                <button type="button" class="btn btn-secondary" disabled="@_busy" @onclick="UnsubscribeAsync">
+                    Turn off on this browser
+                </button>
+                <button type="button" class="btn btn-ghost" @onclick="TestAsync">Send a test</button>
+            }
+            else
+            {
+                <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="SubscribeAsync">
+                    @(_busy ? "Asking…" : "Turn on notifications")
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="li">
+        <span>Browsers receiving notifications</span>
+        <span class="mono">@_deviceCount</span>
+    </div>
+
+    <p class="mono">
+        Each browser is asked separately — turning it on here does not cover your phone.
+        Reminders can also be silenced one at a time on the
+        <a href="/service/reminders">reminders screen</a>.
+    </p>
+}
+
+@code {
+    [Inject] private PushSubscriptionService Push { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private bool _configured;
+    private bool _supported = true;
+    private string _permission = "default";
+    private bool _subscribedHere;
+    private int _deviceCount;
+    private string? _message;
+    private bool _isError;
+    private bool _busy;
+
+    private string StatusTitle => (_supported, _permission, _subscribedHere) switch
+    {
+        (false, _, _) => "Not supported here",
+        (_, "denied", _) => "Blocked in this browser",
+        (_, _, true) => "On",
+        _ => "Off"
+    };
+
+    private string StatusDetail => (_supported, _permission, _subscribedHere) switch
+    {
+        (false, _, _) => "This browser cannot receive push notifications.",
+        (_, "denied", _) => "Notifications are blocked. Allow them in the browser's site settings, then reload.",
+        (_, _, true) => "This browser will be told when something falls due.",
+        _ => "Turn them on to be told without opening the app."
+    };
+
+    protected override void OnInitialized() => _configured = Push.IsConfigured;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !_configured)
+        {
+            return;
+        }
+
+        await RefreshAsync();
+        StateHasChanged();
+    }
+
+    private async Task RefreshAsync()
+    {
+        _supported = await JS.InvokeAsync<bool>("garagePush.isSupported");
+        _permission = await JS.InvokeAsync<string>("garagePush.permission");
+
+        var endpoint = _supported ? await JS.InvokeAsync<string?>("garagePush.currentEndpoint") : null;
+        _subscribedHere = endpoint is not null;
+
+        _deviceCount = await Push.CountAsync();
+    }
+
+    private async Task SubscribeAsync()
+    {
+        _busy = true;
+        _message = null;
+        _isError = false;
+
+        try
+        {
+            var result = await JS.InvokeAsync<SubscribeResult>("garagePush.subscribe", Push.PublicKey);
+
+            switch (result.Status)
+            {
+                case "subscribed":
+                    await Push.SubscribeAsync(new PushSubscriptionRequest(result.Endpoint!, result.P256dh!, result.Auth!));
+                    _message = "Notifications are on for this browser.";
+                    break;
+
+                case "denied":
+                    _message = "The browser blocked notifications. Allow them in its site settings and try again.";
+                    _isError = true;
+                    break;
+
+                case "dismissed":
+                    _message = "The permission prompt was dismissed, so nothing changed.";
+                    break;
+
+                case "unsupported":
+                    _message = "This browser cannot receive push notifications.";
+                    _isError = true;
+                    break;
+
+                default:
+                    _message = $"Could not subscribe: {result.Message}";
+                    _isError = true;
+                    break;
+            }
+
+            await RefreshAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task UnsubscribeAsync()
+    {
+        _busy = true;
+
+        try
+        {
+            var endpoint = await JS.InvokeAsync<string?>("garagePush.unsubscribe");
+
+            if (endpoint is not null)
+            {
+                await Push.UnsubscribeAsync(endpoint);
+            }
+
+            _message = "Notifications are off for this browser.";
+            _isError = false;
+            await RefreshAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    /// <summary>
+    /// Fires a notification from the service worker itself. It proves the permission and
+    /// the worker are live without waiting for the server's next hourly sweep.
+    /// </summary>
+    private async Task TestAsync()
+    {
+        var shown = await JS.InvokeAsync<bool>(
+            "garagePush.testLocal",
+            "Garage",
+            "This is what a due reminder will look like.");
+
+        _message = shown
+            ? "Sent a test notification to this browser."
+            : "The service worker is not running yet — reload and try again.";
+        _isError = !shown;
+    }
+
+    private sealed record SubscribeResult(string Status, string? Endpoint, string? P256dh, string? Auth, string? Message);
+}

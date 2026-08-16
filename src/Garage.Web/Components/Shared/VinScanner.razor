@@ -1,0 +1,135 @@
+@using Garage.Domain.Services
+@implements IAsyncDisposable
+
+@* Story V-3. The camera reads the VIN barcode from the door jamb; an unreadable scan
+   offers a retry and never takes manual entry away [1b]. *@
+
+<div class="card">
+    <div class="row-between">
+        <span class="card-kicker">Scan the VIN</span>
+        <button type="button" class="btn btn-ghost btn-sm" @onclick="StopAsync">Close</button>
+    </div>
+
+    <video id="@_videoId" playsinline muted
+           style="width:100%;height:200px;object-fit:cover;background:var(--color-neutral-900)"></video>
+
+    @if (_status is not null)
+    {
+        <div class="alert @(_isError ? "alert-error" : "alert-info")">@_status</div>
+    }
+
+    <div class="mono">Point the camera at the barcode on the door jamb or windscreen.</div>
+
+    <div class="row">
+        @if (_isError)
+        {
+            <button type="button" class="btn btn-secondary flex-1" @onclick="StartAsync">Try again</button>
+        }
+        <button type="button" class="btn btn-ghost" @onclick="StopAsync">Type it instead</button>
+    </div>
+</div>
+
+@code {
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    /// <summary>Raised with a VIN that passed its format and check-digit tests.</summary>
+    [Parameter] public EventCallback<string> OnScanned { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private readonly string _videoId = $"vin-{Guid.NewGuid():N}";
+    private DotNetObjectReference<VinScanner>? _reference;
+    private string? _status;
+    private bool _isError;
+    private bool _running;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await StartAsync();
+        }
+    }
+
+    private async Task StartAsync()
+    {
+        _status = null;
+        _isError = false;
+
+        _reference ??= DotNetObjectReference.Create(this);
+        var result = await JS.InvokeAsync<string>("garageVin.start", _videoId, _reference);
+        _running = result == "scanning";
+
+        (_status, _isError) = result switch
+        {
+            "scanning" => ("Looking for a barcode…", false),
+            "denied" => ("The camera needs permission before it can scan. Type the VIN instead, or allow it and try again.", true),
+            "no-detector" => ("This browser cannot read barcodes, so nothing will be picked up automatically. Type the VIN instead.", true),
+            "unsupported" or "unavailable" => ("No camera is available on this device. Type the VIN instead.", true),
+            _ => ("The camera could not be started. Type the VIN instead.", true)
+        };
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Called from the scanner when a barcode decodes. A camera misreads characters, so
+    /// the value is checked before it is handed to the form.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnVinScanned(string value)
+    {
+        var check = VinValidator.Check(value);
+
+        if (!check.CanProceed)
+        {
+            _status = $"That scan did not read as a VIN — {check.Problem} Line the barcode up and hold still.";
+            _isError = true;
+            StateHasChanged();
+            return;
+        }
+
+        if (check.IsSuspicious)
+        {
+            // Well formed but the checksum disagrees: likely a misread, possibly a
+            // European VIN that does not use one. Say so and let the user decide.
+            _status = $"Scanned {value}, but its check digit does not add up. Compare it with the plate before saving.";
+            _isError = false;
+        }
+
+        await StopScanningAsync();
+        await OnScanned.InvokeAsync(value);
+    }
+
+    private async Task StopAsync()
+    {
+        await StopScanningAsync();
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task StopScanningAsync()
+    {
+        if (!_running)
+        {
+            return;
+        }
+
+        _running = false;
+        await JS.InvokeVoidAsync("garageVin.stop");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // The camera light must go out when the component does, however it was left.
+        try
+        {
+            await StopScanningAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is already gone; the browser has released the camera with it.
+        }
+
+        _reference?.Dispose();
+    }
+}

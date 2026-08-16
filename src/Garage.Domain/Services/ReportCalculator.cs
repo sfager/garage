@@ -1,4 +1,4 @@
-using Garage.Domain.ValueObjects;
+using Garage.Domain.Repositories;
 
 namespace Garage.Domain.Services;
 

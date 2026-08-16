@@ -3,7 +3,6 @@ using System.Text;
 using Garage.Application.Abstractions;
 using Garage.Domain.Repositories;
 using Garage.Domain.Services;
-using Garage.Domain.ValueObjects;
 
 namespace Garage.Application.Reporting;
 

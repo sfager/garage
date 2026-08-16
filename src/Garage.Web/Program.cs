@@ -1,7 +1,9 @@
 using Garage.Application;
 using Garage.Application.Abstractions;
+using Garage.Domain.Repositories;
 using Garage.Infrastructure;
 using Garage.Infrastructure.Identity;
+using Garage.Infrastructure.Notifications;
 using Garage.Infrastructure.Persistence;
 using Garage.Infrastructure.Storage;
 using Garage.Web.Components;
@@ -9,9 +11,8 @@ using Garage.Web.Components.Account;
 using Garage.Web.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.StaticFiles;
-using Garage.Domain.Repositories;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,8 +42,23 @@ var fileStoreOptions = new FileStoreOptions
     RequestPath = "/files"
 };
 
+// Story S-5: web push. Keys come from configuration or user-secrets; without them the
+// sender reports itself unconfigured and the settings page says so plainly.
+var vapidOptions = new VapidOptions
+{
+    Subject = builder.Configuration.GetValue("Garage:Vapid:Subject", "mailto:garage@example.com")!,
+    PublicKey = builder.Configuration["Garage:Vapid:PublicKey"],
+    PrivateKey = builder.Configuration["Garage:Vapid:PrivateKey"]
+};
+
+var sweepOptions = new NotificationSweepOptions
+{
+    Enabled = builder.Configuration.GetValue("Garage:Notifications:Enabled", true),
+    Interval = TimeSpan.FromMinutes(builder.Configuration.GetValue("Garage:Notifications:IntervalMinutes", 60))
+};
+
 // Onion wiring: the Web layer knows both inner layers, and neither knows it.
-builder.Services.AddGarageInfrastructure(connectionString, fileStoreOptions);
+builder.Services.AddGarageInfrastructure(connectionString, fileStoreOptions, vapidOptions, sweepOptions);
 builder.Services.AddGarageApplication();
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
