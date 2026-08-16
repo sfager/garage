@@ -23,4 +23,10 @@ public interface IServiceRecordRepository : IRepository<ServiceRecord>
 
     /// <summary>Shops used before, so the wizard can offer them again (story L-2).</summary>
     Task<IReadOnlyList<string>> ListShopsAsync(Guid householdId, CancellationToken cancellationToken = default);
+
+    /// <summary>Service spend in a window, which cost per mile counts alongside fuel.</summary>
+    Task<decimal> SumSpendAsync(Guid vehicleId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default);
+
+    /// <summary>Dated service spend, for bucketing running costs by month.</summary>
+    Task<IReadOnlyList<(DateOnly Date, decimal Cost)>> ListSpendAsync(Guid vehicleId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default);
 }

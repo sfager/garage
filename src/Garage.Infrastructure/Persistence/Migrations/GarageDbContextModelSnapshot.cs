@@ -17,6 +17,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("garage")
                 .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
@@ -73,7 +74,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("VehicleId", "ExpiresOn");
 
-                    b.ToTable("Documents", (string)null);
+                    b.ToTable("Documents", "garage");
                 });
 
             modelBuilder.Entity("Garage.Domain.Entities.FuelEntry", b =>
@@ -112,7 +113,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("VehicleId", "Odometer");
 
-                    b.ToTable("FuelEntries", (string)null);
+                    b.ToTable("FuelEntries", "garage");
                 });
 
             modelBuilder.Entity("Garage.Domain.Entities.Household", b =>
@@ -130,7 +131,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Households", (string)null);
+                    b.ToTable("Households", "garage");
                 });
 
             modelBuilder.Entity("Garage.Domain.Entities.OdometerReading", b =>
@@ -163,7 +164,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("VehicleId", "Date");
 
-                    b.ToTable("OdometerReadings", (string)null);
+                    b.ToTable("OdometerReadings", "garage");
                 });
 
             modelBuilder.Entity("Garage.Domain.Entities.Reminder", b =>
@@ -213,7 +214,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("VehicleId", "IsDismissed");
 
-                    b.ToTable("Reminders", (string)null);
+                    b.ToTable("Reminders", "garage");
                 });
 
             modelBuilder.Entity("Garage.Domain.Entities.ServiceRecord", b =>
@@ -262,7 +263,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("VehicleId", "Date");
 
-                    b.ToTable("ServiceRecords", (string)null);
+                    b.ToTable("ServiceRecords", "garage");
                 });
 
             modelBuilder.Entity("Garage.Domain.Entities.ServiceRecordItem", b =>
@@ -287,7 +288,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ServiceRecordId");
 
-                    b.ToTable("ServiceRecordItems", (string)null);
+                    b.ToTable("ServiceRecordItems", "garage");
                 });
 
             modelBuilder.Entity("Garage.Domain.Entities.Trip", b =>
@@ -324,7 +325,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("VehicleId", "Date");
 
-                    b.ToTable("Trips", (string)null);
+                    b.ToTable("Trips", "garage");
                 });
 
             modelBuilder.Entity("Garage.Domain.Entities.Vehicle", b =>
@@ -389,7 +390,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("HouseholdId", "IsArchived");
 
-                    b.ToTable("Vehicles", (string)null);
+                    b.ToTable("Vehicles", "garage");
                 });
 
             modelBuilder.Entity("Garage.Infrastructure.Identity.ApplicationUser", b =>
@@ -461,7 +462,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
-                    b.ToTable("AspNetUsers", (string)null);
+                    b.ToTable("AspNetUsers", "garage");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -488,7 +489,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("RoleNameIndex")
                         .HasFilter("[NormalizedName] IS NOT NULL");
 
-                    b.ToTable("AspNetRoles", (string)null);
+                    b.ToTable("AspNetRoles", "garage");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -513,7 +514,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetRoleClaims", (string)null);
+                    b.ToTable("AspNetRoleClaims", "garage");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
@@ -538,7 +539,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", (string)null);
+                    b.ToTable("AspNetUserClaims", "garage");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
@@ -562,7 +563,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", (string)null);
+                    b.ToTable("AspNetUserLogins", "garage");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserPasskey<string>", b =>
@@ -579,7 +580,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserPasskeys", (string)null);
+                    b.ToTable("AspNetUserPasskeys", "garage");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
@@ -594,7 +595,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetUserRoles", (string)null);
+                    b.ToTable("AspNetUserRoles", "garage");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
@@ -615,7 +616,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", (string)null);
+                    b.ToTable("AspNetUserTokens", "garage");
                 });
 
             modelBuilder.Entity("Garage.Domain.Entities.Document", b =>
@@ -783,7 +784,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
 
                             b1.HasKey("IdentityUserPasskeyCredentialId");
 
-                            b1.ToTable("AspNetUserPasskeys");
+                            b1.ToTable("AspNetUserPasskeys", "garage");
 
                             b1
                                 .ToJson("Data")
