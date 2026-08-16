@@ -36,6 +36,19 @@ window.garage = {
         }
     },
 
+    // Story R-4: hands the generated CSV to the browser as a download.
+    downloadCsv: (fileName, content) => {
+        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    },
+
     // Selects everything in the focused field, so a link can be copied in one gesture.
     selectAll: () => document.activeElement?.select?.(),
 
