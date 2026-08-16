@@ -1,11 +1,369 @@
 @page "/reports"
 @attribute [Authorize]
+@using Garage.Application.Reporting
+@using Garage.Domain.Repositories
+@using Garage.Domain.Services
 
 <PageTitle>Reports · Garage</PageTitle>
 
-<VehicleSwitcher Compact="true" />
+@* Wireframe 1m: one screen, three tabs, with the vehicle and range filters applying to
+   every figure on it. The layout widens on desktop; MainLayout handles that by route. *@
 
-<div class="empty">
-    <h4>Reports</h4>
-    <p class="mono">This screen is built in epic E7.</p>
+<div class="row-between row-end" style="flex-wrap:wrap">
+    <div>
+        <h3 style="margin:0">Reports</h3>
+        <span class="mono">@VehicleLabel · @(_screen?.RangeDescription ?? "…")</span>
+    </div>
+
+    <div class="row" style="flex-wrap:wrap">
+        <div class="seg">
+            <button type="button" class="seg-opt @(_filter.VehicleId is null ? "on" : null)"
+                    @onclick="() => SetVehicleAsync(null)">All vehicles</button>
+            @foreach (var vehicle in _vehicles)
+            {
+                <button type="button" class="seg-opt @(_filter.VehicleId == vehicle.Id ? "on" : null)"
+                        @onclick="() => SetVehicleAsync(vehicle.Id)">@vehicle.Nickname</button>
+            }
+        </div>
+
+        <div class="seg">
+            <button type="button" class="seg-opt @(_filter.Range == ReportRange.YearToDate ? "on" : null)"
+                    @onclick="() => SetRangeAsync(ReportRange.YearToDate)">YTD</button>
+            <button type="button" class="seg-opt @(_filter.Range == ReportRange.TwelveMonths ? "on" : null)"
+                    @onclick="() => SetRangeAsync(ReportRange.TwelveMonths)">12 mo</button>
+            <button type="button" class="seg-opt @(_filter.Range == ReportRange.All ? "on" : null)"
+                    @onclick="() => SetRangeAsync(ReportRange.All)">All</button>
+        </div>
+
+        <button type="button" class="btn btn-secondary" disabled="@(_screen is null)" @onclick="ExportAsync">
+            Export CSV
+        </button>
+    </div>
 </div>
+
+@if (_exportMessage is not null)
+{
+    <div class="alert alert-info">@_exportMessage</div>
+}
+
+<div class="seg" style="align-self:flex-start">
+    <button type="button" class="seg-opt @(_tab == Tab.Costs ? "on" : null)" @onclick="() => _tab = Tab.Costs">Cost dashboard</button>
+    <button type="button" class="seg-opt @(_tab == Tab.History ? "on" : null)" @onclick="() => _tab = Tab.History">Full history</button>
+    <button type="button" class="seg-opt @(_tab == Tab.Compare ? "on" : null)" @onclick="() => _tab = Tab.Compare">Compare vehicles</button>
+</div>
+
+@if (_screen is null)
+{
+    <p class="mono">Loading…</p>
+}
+else if (_tab == Tab.Costs)
+{
+    @* Story R-1: four summary figures. *@
+    <div class="grid-4">
+        <div class="card card-accent">
+            <div class="sec">Total spend</div>
+            <div class="big" style="font-size:30px">@_screen.Dashboard.TotalSpend.ToString("C0")</div>
+            <div class="mono">@_screen.RangeDescription</div>
+        </div>
+        <div class="card card-accent">
+            <div class="sec">Cost per mile</div>
+            <div class="big" style="font-size:30px">
+                @(_screen.Dashboard.CostPerMile is { } cpm ? cpm.ToString("C2") : "—")
+            </div>
+            <div class="mono">@VehicleLabel.ToLowerInvariant()</div>
+        </div>
+        <div class="card card-accent">
+            <div class="sec">Miles driven</div>
+            <div class="big" style="font-size:30px">@_screen.Dashboard.MilesDriven.ToString("N0")</div>
+            <div class="mono">@MilesBreakdown</div>
+        </div>
+        <div class="card card-accent">
+            <div class="sec">Biggest line</div>
+            <div class="big" style="font-size:30px">@(_screen.Dashboard.LargestLineItem ?? "—")</div>
+            <div class="mono">
+                @(_screen.Dashboard.LargestLineAmount?.ToString("C0")) · @(_screen.Dashboard.LargestLineDate?.ToString("MMM"))
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-report">
+        @* Spend by month, service against fuel [1m]. *@
+        <div class="card">
+            <div class="row-between">
+                <span class="card-title">Spend by month</span>
+                <span class="mono">■ service ■ fuel</span>
+            </div>
+
+            @if (_screen.Dashboard.ByMonth.Count == 0)
+            {
+                <p class="mono">Nothing recorded in this range.</p>
+            }
+            else
+            {
+                <div class="row" style="align-items:flex-end;gap:8px;height:150px">
+                    @foreach (var month in _screen.Dashboard.ByMonth)
+                    {
+                        <div class="flex-1" style="display:flex;flex-direction:column;justify-content:flex-end;height:100%"
+                             title="@month.Month.ToString("MMM yyyy") — service @month.Service.ToString("C0"), fuel @month.Fuel.ToString("C0")">
+                            <div style="height:@Percent(month.Service)%;background:var(--color-accent)"></div>
+                            <div style="height:@Percent(month.Fuel)%;background:var(--color-neutral-300)"></div>
+                        </div>
+                    }
+                </div>
+                <div class="row-between">
+                    <span class="mono">@_screen.Dashboard.ByMonth[0].Month.ToString("MMM")</span>
+                    <span class="mono">@_screen.Dashboard.ByMonth[^1].Month.ToString("MMM")</span>
+                </div>
+            }
+        </div>
+
+        @* Where it went [1m]. *@
+        <div class="card">
+            <div class="card-title">Where it went</div>
+            @if (_screen.Dashboard.ByCategory.Count == 0)
+            {
+                <p class="mono">Nothing recorded in this range.</p>
+            }
+            else
+            {
+                @foreach (var category in _screen.Dashboard.ByCategory)
+                {
+                    <div class="li"><span>@category.Category</span><span>@category.Amount.ToString("C0")</span></div>
+                    <div class="bar"><span style="width:@((int)(category.ShareOfLargest * 100))%"></span></div>
+                }
+            }
+        </div>
+    </div>
+}
+else if (_tab == Tab.History)
+{
+    @* Story R-2: every record in one filterable, sortable table. *@
+    <div class="card">
+        <div class="row-between" style="flex-wrap:wrap">
+            <span class="card-title">Full history</span>
+            <div class="row">
+                <select class="input" style="width:auto" value="@_filter.Category" @onchange="OnCategoryChanged">
+                    <option value="">All categories</option>
+                    @foreach (var category in _screen.Categories)
+                    {
+                        <option value="@category" selected="@(_filter.Category == category)">@category</option>
+                    }
+                </select>
+                <span class="mono">@_screen.History.Count row@(_screen.History.Count == 1 ? "" : "s")</span>
+            </div>
+        </div>
+
+        <div class="scroll-x">
+            <table class="table">
+                <thead>
+                    <tr>
+                        @foreach (var column in Columns)
+                        {
+                            <th style="cursor:pointer" @onclick="() => SortByAsync(column.Sort)">
+                                @column.Label@(_filter.Sort == column.Sort ? (_filter.Descending ? " ▾" : " ▴") : null)
+                            </th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var line in _screen.History)
+                    {
+                        <tr style="cursor:pointer" @onclick="() => OpenAsync(line)">
+                            <td>@line.Date.ToString("MMM d, yyyy")</td>
+                            <td>@line.VehicleNickname</td>
+                            <td>@line.Odometer.ToString("N0")</td>
+                            <td>@ReportService.CategoryLabel(line)</td>
+                            <td>@line.Item</td>
+                            <td>@(line.Shop ?? "—")</td>
+                            <td>@line.Cost.ToString("C2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_screen.History.Count == 0)
+        {
+            <p class="mono">Nothing matches these filters.</p>
+        }
+    </div>
+}
+else
+{
+    @* Story R-3: the vehicles side by side. *@
+    <div class="card">
+        <div class="card-title">Compare vehicles · @_screen.RangeDescription</div>
+
+        @if (_screen.Comparison.Count == 0)
+        {
+            <p class="mono">Nothing recorded in this range.</p>
+        }
+        else
+        {
+            <div class="scroll-x">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            @foreach (var vehicle in _screen.Comparison)
+                            {
+                                <th>@vehicle.Nickname</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Cost per mile</td>
+                            @foreach (var vehicle in _screen.Comparison)
+                            {
+                                <td>@(vehicle.CostPerMile is { } c ? c.ToString("C2") : "—")</td>
+                            }
+                        </tr>
+                        <tr>
+                            <td>Average MPG</td>
+                            @foreach (var vehicle in _screen.Comparison)
+                            {
+                                <td>@(vehicle.AverageMpg is { } m ? m.ToString("N1") : "—")</td>
+                            }
+                        </tr>
+                        <tr>
+                            <td>Annual spend</td>
+                            @foreach (var vehicle in _screen.Comparison)
+                            {
+                                <td>@vehicle.AnnualisedSpend.ToString("C0")</td>
+                            }
+                        </tr>
+                        <tr>
+                            <td>Spend in range</td>
+                            @foreach (var vehicle in _screen.Comparison)
+                            {
+                                <td>@vehicle.TotalSpend.ToString("C0")</td>
+                            }
+                        </tr>
+                        <tr>
+                            <td>Miles driven</td>
+                            @foreach (var vehicle in _screen.Comparison)
+                            {
+                                <td>@vehicle.MilesDriven.ToString("N0")</td>
+                            }
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="mono">Annual spend scales this range to a year so the columns compare like with like.</div>
+        }
+    </div>
+}
+
+@code {
+    // Named "Analytics" rather than "Reports": a member may not share its
+    // enclosing component's name, and this page compiles to a class called Reports.
+    [Inject] private ReportService Analytics { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private enum Tab { Costs, History, Compare }
+
+    private record Column(string Label, HistorySort Sort);
+
+    private static readonly Column[] Columns =
+    [
+        new("Date", HistorySort.Date),
+        new("Vehicle", HistorySort.Vehicle),
+        new("Odometer", HistorySort.Odometer),
+        new("Category", HistorySort.Category),
+        new("Item", HistorySort.Item),
+        new("Shop", HistorySort.Shop),
+        new("Cost", HistorySort.Cost)
+    ];
+
+    private readonly ReportFilter _filter = new();
+    private ReportScreen? _screen;
+    private IReadOnlyList<(Guid Id, string Nickname)> _vehicles = [];
+    private Tab _tab = Tab.Costs;
+    private string? _exportMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _vehicles = await Analytics.ListVehiclesAsync();
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync() => _screen = await Analytics.GetScreenAsync(_filter);
+
+    private string VehicleLabel => _filter.VehicleId is { } id
+        ? _vehicles.FirstOrDefault(v => v.Id == id).Nickname ?? "Vehicle"
+        : _vehicles.Count > 0 ? string.Join(" + ", _vehicles.Select(v => v.Nickname)) : "All vehicles";
+
+    private string MilesBreakdown =>
+        _screen is null || _filter.VehicleId is not null || _screen.Comparison.Count < 2
+            ? "in range"
+            : string.Join(" + ", _screen.Comparison.Select(c => c.MilesDriven.ToString("N0")));
+
+    /// <summary>Bars are drawn against the biggest month in view, service stacked on fuel.</summary>
+    private int Percent(decimal amount)
+    {
+        var max = _screen?.Dashboard.ByMonth.Max(m => m.Total) ?? 0m;
+        return max <= 0 ? 0 : (int)Math.Clamp((double)(amount / max) * 100, 0, 100);
+    }
+
+    private async Task SetVehicleAsync(Guid? vehicleId)
+    {
+        _filter.VehicleId = vehicleId;
+        _exportMessage = null;
+        await ReloadAsync();
+    }
+
+    private async Task SetRangeAsync(ReportRange range)
+    {
+        _filter.Range = range;
+        _exportMessage = null;
+        await ReloadAsync();
+    }
+
+    private async Task OnCategoryChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        _filter.Category = string.IsNullOrWhiteSpace(value) ? null : value;
+        await ReloadAsync();
+    }
+
+    /// <summary>Clicking the sorted column again reverses it, as a table should.</summary>
+    private async Task SortByAsync(HistorySort sort)
+    {
+        if (_filter.Sort == sort)
+        {
+            _filter.Descending = !_filter.Descending;
+        }
+        else
+        {
+            _filter.Sort = sort;
+            _filter.Descending = true;
+        }
+
+        await ReloadAsync();
+    }
+
+    /// <summary>Story R-2: rows open the underlying record.</summary>
+    private Task OpenAsync(CostLine line)
+    {
+        if (line.Kind == CostKind.Service)
+        {
+            Navigation.NavigateTo($"/service/history/{line.RecordId}");
+        }
+        else
+        {
+            Navigation.NavigateTo("/fuel");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Story R-4: the export honours the current filters and states its row count.</summary>
+    private async Task ExportAsync()
+    {
+        var export = await Analytics.ExportAsync(_filter);
+        await JS.InvokeVoidAsync("garage.downloadCsv", export.FileName, export.Content);
+        _exportMessage = $"Exported {export.RowCount} row{(export.RowCount == 1 ? "" : "s")} to {export.FileName}.";
+    }
+}

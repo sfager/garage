@@ -334,6 +334,12 @@ button.tag { cursor: pointer; font-family: var(--font-body); }
   border: 1px dashed var(--color-neutral-400);
 }
 
+/* Reports pairs a wide chart with a narrower breakdown [1m], stacking on mobile. */
+.grid-report { display: grid; grid-template-columns: 1fr; gap: var(--space-4); }
+@media (min-width: 900px) {
+  .grid-report { grid-template-columns: 2fr 1fr; }
+}
+
 /* — desktop — */
 @media (min-width: 900px) {
   .shell-body { padding-bottom: var(--space-8); padding-inline: var(--space-6); }

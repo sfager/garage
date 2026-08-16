@@ -47,6 +47,7 @@ public static class DependencyInjection
         services.AddScoped<IServiceRecordRepository, ServiceRecordRepository>();
         services.AddScoped<IFuelRepository, FuelRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
+        services.AddScoped<IReportRepository, ReportRepository>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<GarageDbSeeder>();
 
