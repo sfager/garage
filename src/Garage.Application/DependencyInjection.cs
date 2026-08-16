@@ -1,3 +1,4 @@
+using Garage.Application.Fuel;
 using Garage.Application.Maintenance;
 using Garage.Application.Mileage;
 using Garage.Application.ServiceLogging;
@@ -19,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<MileageService>();
         services.AddScoped<MaintenanceService>();
         services.AddScoped<ServiceLogWizard>();
+        services.AddScoped<FuelService>();
         return services;
     }
 }

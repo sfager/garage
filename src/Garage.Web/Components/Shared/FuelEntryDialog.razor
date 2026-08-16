@@ -1,0 +1,170 @@
+@using Garage.Application.Fuel
+
+@* Story G-1: date, volume, total cost, odometer, station and the partial-fill flag [1h]. *@
+
+<div class="dialog-backdrop" @onclick="OnClose">
+    <div class="dialog" @onclick:stopPropagation="true">
+        <div class="dialog-title">@(EntryId is null ? "Log a fill-up" : "Edit fill-up")</div>
+
+        <EditForm Model="_request" OnValidSubmit="SaveAsync" FormName="fuel-entry">
+            <DataAnnotationsValidator />
+
+            <div class="stack">
+                @if (_error is not null)
+                {
+                    <div class="alert alert-error">@_error</div>
+                }
+
+                <div class="field">
+                    <label for="fuel-date">Date</label>
+                    <InputDate id="fuel-date" class="input" @bind-Value="_date" max="@Clock.Today.ToString("yyyy-MM-dd")" />
+                </div>
+
+                <div class="row">
+                    <div class="field flex-1">
+                        <label for="gallons">Gallons</label>
+                        <InputNumber id="gallons" class="input input-lg" @bind-Value="_request.Gallons" placeholder="11.9" />
+                        <ValidationMessage For="() => _request.Gallons" />
+                    </div>
+                    <div class="field flex-1">
+                        <label for="cost">Total cost</label>
+                        <InputNumber id="cost" class="input input-lg" @bind-Value="_request.TotalCost" placeholder="41.60" />
+                        <ValidationMessage For="() => _request.TotalCost" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="fuel-odometer">Odometer</label>
+                    <InputNumber id="fuel-odometer" class="input" @bind-Value="_request.Odometer" />
+                    <ValidationMessage For="() => _request.Odometer" />
+                </div>
+
+                <div class="field">
+                    <label for="station">Station</label>
+                    @* Story G-1: stations used before are offered, anything else can be typed. *@
+                    <input id="station" class="input" list="stations" placeholder="Shell, Elm St"
+                           value="@_request.Station" @onchange="e => _request.Station = e.Value?.ToString()" />
+                    <datalist id="stations">
+                        @foreach (var station in _stations)
+                        {
+                            <option value="@station"></option>
+                        }
+                    </datalist>
+                </div>
+
+                <label class="radio">
+                    <InputCheckbox @bind-Value="_request.IsPartialFill" />
+                    Partial fill — did not fill the tank
+                </label>
+                <div class="mono">
+                    Partial fills still count towards fuel spend, but only full tanks can
+                    measure miles per gallon.
+                </div>
+
+                <div class="row" style="justify-content:@(EntryId is null ? "flex-end" : "space-between")">
+                    @if (EntryId is not null)
+                    {
+                        <button type="button" class="btn btn-danger" @onclick="DeleteAsync">Delete</button>
+                    }
+                    <div class="row">
+                        <button type="button" class="btn btn-secondary" @onclick="OnClose">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@_busy">@(_busy ? "Saving…" : "Save")</button>
+                    </div>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [Inject] private FuelService FuelService { get; set; } = default!;
+    [Inject] private IClock Clock { get; set; } = default!;
+
+    [Parameter, EditorRequired] public Guid VehicleId { get; set; }
+    [Parameter] public Guid? EntryId { get; set; }
+    [Parameter, EditorRequired] public int CurrentOdometer { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private FuelEntryRequest _request = new();
+    private IReadOnlyList<string> _stations = [];
+    private DateTime _date;
+    private string? _error;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _date = Clock.Today.ToDateTime(TimeOnly.MinValue);
+        _request = new FuelEntryRequest
+        {
+            Id = EntryId,
+            Date = Clock.Today,
+            Odometer = CurrentOdometer
+        };
+
+        if (EntryId is { } id)
+        {
+            var screen = await FuelService.GetScreenAsync(VehicleId, FuelRange.All);
+            var fill = screen.Efficiency.Fills.FirstOrDefault(f => f.Id == id);
+
+            if (fill is not null)
+            {
+                _date = fill.Date.ToDateTime(TimeOnly.MinValue);
+                _request.Date = fill.Date;
+                _request.Odometer = fill.Odometer;
+                _request.Gallons = fill.Gallons;
+                _request.TotalCost = fill.TotalCost;
+                _request.IsPartialFill = fill.IsPartialFill;
+                _request.Station = screen.Stations.GetValueOrDefault(id);
+            }
+        }
+
+        _stations = await FuelService.ListStationsAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            _request.Date = DateOnly.FromDateTime(_date);
+            await FuelService.SaveAsync(VehicleId, _request);
+            await OnSaved.InvokeAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (EntryId is not { } id)
+        {
+            return;
+        }
+
+        _busy = true;
+
+        try
+        {
+            await FuelService.DeleteAsync(id);
+            await OnSaved.InvokeAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

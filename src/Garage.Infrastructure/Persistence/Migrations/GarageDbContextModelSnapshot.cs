@@ -26,7 +26,6 @@ namespace Garage.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Garage.Domain.Entities.Document", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ContentType")
@@ -81,7 +80,6 @@ namespace Garage.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Garage.Domain.Entities.FuelEntry", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedUtc")
@@ -121,7 +119,6 @@ namespace Garage.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Garage.Domain.Entities.Household", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedUtc")
@@ -140,7 +137,6 @@ namespace Garage.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Garage.Domain.Entities.OdometerReading", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedUtc")
@@ -174,7 +170,6 @@ namespace Garage.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Garage.Domain.Entities.Reminder", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateOnly>("AnchorDate")
@@ -225,7 +220,6 @@ namespace Garage.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Garage.Domain.Entities.ServiceRecord", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Category")
@@ -275,7 +269,6 @@ namespace Garage.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Garage.Domain.Entities.ServiceRecordItem", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Name")
@@ -301,7 +294,6 @@ namespace Garage.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Garage.Domain.Entities.Trip", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedUtc")
@@ -339,7 +331,6 @@ namespace Garage.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Garage.Domain.Entities.Vehicle", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedUtc")

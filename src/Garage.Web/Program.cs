@@ -1,5 +1,6 @@
 using Garage.Application;
 using Garage.Application.Abstractions;
+using Garage.Domain.Repositories;
 using Garage.Infrastructure;
 using Garage.Infrastructure.Identity;
 using Garage.Infrastructure.Persistence;
@@ -11,8 +12,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.StaticFiles;
-using Garage.Infrastructure.Persistence.Repositories;
-using Microsoft.AspNetCore.Mvc;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -98,7 +98,7 @@ app.MapGet($"{fileStoreOptions.RequestPath}/{{**storageKey}}", async (
         string storageKey,
         HttpContext http,
         UserManager<ApplicationUser> users,
-        [FromServices] VehicleRepository vehicles,
+        IVehicleRepository vehicles,
         IFileStore files,
         IContentTypeProvider contentTypes,
         CancellationToken cancellationToken) =>
