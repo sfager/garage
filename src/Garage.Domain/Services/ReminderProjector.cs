@@ -66,7 +66,13 @@ public static class ReminderProjector
             : null;
 
         var leading = ChooseLeadingTrigger(daysViaMileage, daysRemaining, milesRemaining);
-        var band = ChooseBand(daysViaMileage, daysRemaining, milesRemaining, milesPerDay);
+
+        // A running snooze holds the item out of "overdue" whichever trigger fired,
+        // because that is what the user asked for.
+        var snoozed = reminder.IsSnoozed(currentOdometer, today);
+        var band = snoozed
+            ? DueBand.DueSoon
+            : ChooseBand(daysViaMileage, daysRemaining, milesRemaining, milesPerDay);
 
         return new ReminderProjection(
             reminder.Id,
@@ -80,7 +86,9 @@ public static class ReminderProjector
             Progress(currentOdometer - reminder.AnchorOdometer, reminder.MileageInterval),
             Progress(today.DayNumber - reminder.AnchorDate.DayNumber, MonthsInDays(reminder)),
             reminder.TriggerDescription,
-            Describe(band, leading, milesRemaining, daysRemaining),
+            snoozed
+                ? DescribeSnooze(reminder, currentOdometer, today)
+                : Describe(band, leading, milesRemaining, daysRemaining),
             Min(daysViaMileage, daysRemaining));
     }
 
@@ -182,6 +190,24 @@ public static class ReminderProjector
             DueTrigger.Time when daysRemaining is { } days => $"{DescribeDays(days)} to go",
             _ => "no trigger set"
         };
+    }
+
+    /// <summary>Says what the snooze is waiting for, rather than pretending nothing is due.</summary>
+    private static string DescribeSnooze(Entities.Reminder reminder, int currentOdometer, DateOnly today)
+    {
+        var parts = new List<string>();
+
+        if (reminder.SnoozedToOdometer is { } odometer && currentOdometer < odometer)
+        {
+            parts.Add($"{odometer - currentOdometer:N0} mi");
+        }
+
+        if (reminder.SnoozedToDate is { } date && today < date)
+        {
+            parts.Add(DescribeDays(date.DayNumber - today.DayNumber));
+        }
+
+        return parts.Count == 0 ? "snoozed" : $"snoozed — {string.Join(" / ", parts)} to go";
     }
 
     /// <summary>Months read better than days once past a few weeks.</summary>

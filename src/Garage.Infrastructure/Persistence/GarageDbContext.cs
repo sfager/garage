@@ -23,6 +23,9 @@ public class GarageDbContext(DbContextOptions<GarageDbContext> options)
     public DbSet<FuelEntry> FuelEntries => Set<FuelEntry>();
     public DbSet<Reminder> Reminders => Set<Reminder>();
     public DbSet<Document> Documents => Set<Document>();
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+    public DbSet<SentNotification> SentNotifications => Set<SentNotification>();
+
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

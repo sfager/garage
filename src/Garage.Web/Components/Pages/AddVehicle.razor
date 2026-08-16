@@ -1,5 +1,6 @@
 @page "/vehicles/add"
 @attribute [Authorize]
+@using Garage.Domain.Services
 
 <PageTitle>Add a vehicle · Garage</PageTitle>
 
@@ -38,9 +39,23 @@
         }
     </div>
 
-    @* Story V-3 (camera scan) is scheduled for phase 7; the affordance is shown as
-       inactive rather than hidden so the flow matches the wireframe. *@
-    <div class="ph" style="height:70px"><span class="mono">scan VIN with camera — phase 7</span></div>
+    @* Story V-3: scan the plate rather than typing seventeen characters [1b]. *@
+    @if (_scanning)
+    {
+        <VinScanner OnScanned="OnVinScannedAsync" OnClose="() => _scanning = false" />
+    }
+    else if (_method == LookupMethod.Vin)
+    {
+        <button type="button" class="ph" style="height:70px;width:100%;cursor:pointer"
+                @onclick="() => _scanning = true">
+            <span class="mono">scan VIN with camera</span>
+        </button>
+    }
+
+    @if (_vinWarning is not null)
+    {
+        <div class="alert alert-info">@_vinWarning</div>
+    }
 
     @if (_lookupMessage is not null)
     {
@@ -157,9 +172,29 @@ else
 
     private readonly AddVehicleRequest _request = new();
     private string? _lookupMessage;
+    private string? _vinWarning;
+    private bool _scanning;
     private string? _foundDescription;
     private string? _error;
     private bool _busy;
+
+    /// <summary>
+    /// A scanned VIN drops into the field and goes straight to lookup — the point of
+    /// scanning is not to then press another button.
+    /// </summary>
+    private async Task OnVinScannedAsync(string vin)
+    {
+        _scanning = false;
+        _identifier = vin;
+        _method = LookupMethod.Vin;
+
+        var check = VinValidator.Check(vin);
+        _vinWarning = check.IsSuspicious
+            ? $"Scanned {vin}. Its check digit does not add up, so compare it with the plate."
+            : null;
+
+        await LookupAsync();
+    }
 
     private async Task LookupAsync()
     {

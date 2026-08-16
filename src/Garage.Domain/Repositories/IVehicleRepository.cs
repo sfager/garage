@@ -1,5 +1,4 @@
 using Garage.Domain.Entities;
-using Garage.Domain.ValueObjects;
 
 namespace Garage.Domain.Repositories;
 

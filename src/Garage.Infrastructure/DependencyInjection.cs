@@ -1,5 +1,6 @@
 using Garage.Application.Abstractions;
 using Garage.Domain.Repositories;
+using Garage.Infrastructure.Notifications;
 using Garage.Infrastructure.Persistence;
 using Garage.Infrastructure.Persistence.Repositories;
 using Garage.Infrastructure.Services;
@@ -7,6 +8,7 @@ using Garage.Infrastructure.Storage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Garage.Infrastructure;
 
@@ -28,7 +30,9 @@ public static class DependencyInjection
     public static IServiceCollection AddGarageInfrastructure(
         this IServiceCollection services,
         string connectionString,
-        FileStoreOptions? fileStore = null)
+        FileStoreOptions? fileStore = null,
+        VapidOptions? vapid = null,
+        NotificationSweepOptions? sweep = null)
     {
         services.Configure<IdentityOptions>(ConfigureIdentitySchema);
 
@@ -48,6 +52,9 @@ public static class DependencyInjection
         services.AddScoped<IFuelRepository, FuelRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
         services.AddScoped<IReportRepository, ReportRepository>();
+        services.AddScoped<IPushSubscriptionRepository, PushSubscriptionRepository>();
+        services.AddScoped<ISentNotificationRepository, SentNotificationRepository>();
+        services.AddScoped<INotificationScanRepository, NotificationScanRepository>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<GarageDbSeeder>();
 
@@ -61,6 +68,19 @@ public static class DependencyInjection
             client.BaseAddress = new Uri("https://vpic.nhtsa.dot.gov/api/");
             client.Timeout = TimeSpan.FromSeconds(10);
         });
+
+        // Story S-5: web push. Without VAPID keys the sender reports itself
+        // unconfigured and the sweep stands down rather than failing.
+        services.AddSingleton(vapid ?? new VapidOptions());
+        services.AddSingleton<IPushSender, WebPushSender>();
+
+        var sweepOptions = sweep ?? new NotificationSweepOptions();
+        services.AddSingleton(sweepOptions);
+
+        if (sweepOptions.Enabled)
+        {
+            services.AddHostedService<NotificationSweepService>();
+        }
 
         return services;
     }

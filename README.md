@@ -29,18 +29,26 @@ touches `GarageDbContext` directly — they go through the Application abstracti
 
 ### Where repository interfaces live
 
-New repository interfaces go in **`Garage.Domain/Repositories`** — the contract sits with
-the model it describes. Because the Domain depends on nothing outside itself, an interface
-there may only return Domain types; `IReportRepository` defines its own `CostLine` and
-`OdometerPoint` records rather than borrowing Application DTOs.
+Repository interfaces live in **`Garage.Domain/Repositories`** — the contract sits with the
+model it describes. Because the Domain depends on nothing outside itself, an interface
+there may only speak in Domain types: `IReportRepository` defines its own `CostLine` and
+`OdometerPoint`, and `VehicleDeletionImpact` sits beside the interface that returns it.
 
-The interfaces written before this convention (`IVehicleRepository`, `IMileageRepository`,
-`IReminderRepository`, `IServiceRecordRepository`, `IFuelRepository`, `IDocumentRepository`,
-`IHouseholdRepository`) are still in `Garage.Application/Abstractions`. Some of them return
-Application DTOs, so moving them means giving those return types a Domain-side equivalent
-first — not a rename. The non-repository abstractions (`IClock`, `ICurrentUser`,
-`IFileStore`, `IUnitOfWork`, and the store and lookup interfaces) belong in Application
-either way, since they describe application concerns rather than the model.
+```
+Garage.Domain/Repositories     IRepository<T>, IHouseholdRepository, IVehicleRepository,
+                               IMileageRepository, IReminderRepository,
+                               IServiceRecordRepository, IFuelRepository,
+                               IDocumentRepository, IReportRepository
+Garage.Application/Abstractions  IClock, ICurrentUser, IUnitOfWork, IFileStore,
+                                 ISelectedVehicleStore, IServiceDraftStore,
+                                 IVehicleLookupService
+```
+
+The split is by what the interface describes, not by who calls it. A repository describes
+how the model is read and written, so it belongs to the model. The abstractions left in
+Application describe application concerns — the clock, the signed-in user, the commit
+boundary, where files and drafts are kept, an external lookup service — none of which the
+Domain has an opinion about.
 
 ## Design decisions taken from the backlog's "Open decisions"
 
@@ -148,16 +156,52 @@ fuel-only by nature.
 Where a figure cannot be computed, the screen states why instead of showing a zero — a
 zero here reads as "this car does nought to the gallon" rather than "we cannot tell yet".
 
-## Notifications (story S-5) — partially built
+## Notifications (story S-5)
 
-The per-reminder switch, the active-reminders list with their triggers, and the in-app
-surfacing of due items on Home are all working. What is **not** built is delivery: nothing
-reaches the user while the app is closed. That needs a channel decision — web push
-(service worker plus VAPID keys), email (an SMTP or API provider), or both — and a
-background job to evaluate due points on a schedule. `Reminder.NotificationsEnabled` is
-the flag such a job would honour.
+Delivery is **web push**: a service worker receives the notification whether or not the app
+is open. An hourly background sweep (`NotificationSweepService`) looks for reminders whose
+trigger has arrived and documents inside the 30-day expiry window, and pushes them to every
+browser the household has subscribed.
 
-The backlog schedules S-5 in phase 7, so this gap is expected at this point.
+A due point stays due until the work is done, so each notification is recorded against the
+due point it described (`SentNotifications`). That keeps a standing item quiet while still
+speaking up when the due point moves — after a service, or once a snooze runs out. A
+delivery that fails is deliberately *not* recorded, so a transient outage retries rather
+than swallowing the notification.
+
+### Setting it up
+
+Push needs a VAPID key pair. Without one the sender reports itself unconfigured, the sweep
+stands down, and the settings page says so rather than failing quietly. Generate a pair:
+
+```bash
+dotnet run --project tools/GenerateVapidKeys
+```
+
+Then store them — never in a committed settings file:
+
+```bash
+dotnet user-secrets --project src/Garage.Web set "Garage:Vapid:PublicKey" "<public>"
+```
+
+Other settings: `Garage:Vapid:Subject` (a `mailto:` or `https:` URL identifying the app),
+`Garage:Notifications:Enabled`, `Garage:Notifications:IntervalMinutes`.
+
+Each browser subscribes separately at `/settings/notifications` — turning it on at a desk
+does not cover a phone. Individual reminders can still be silenced one at a time on the
+reminders screen [1k]. iOS only delivers push to a site added to the home screen.
+
+## VIN scanning (story V-3)
+
+The scanner reads the Code 39 / Code 128 barcode on the door jamb using the browser's
+`BarcodeDetector`. There is deliberately **no OCR fallback**: a VIN read wrongly but
+confidently is worse than no VIN, and the manual field is always beside it. A scan that
+cannot be read offers a retry and never takes manual entry away.
+
+A scanned VIN is checked before it is trusted — length, the excluded letters I/O/Q, and the
+check digit in position nine, which catches most single-character misreads. A failed check
+digit *warns* rather than blocks: it is mandatory in North America but not in Europe, so a
+genuine European VIN can fail it.
 
 ## Working with the schema
 
@@ -188,4 +232,4 @@ dotnet test
 | E5 · Fuel and running costs | G-1, G-2, G-3 | Done — verified against SQL Server 2022 |
 | E6 · Documents | D-1, D-2, D-3 | Done — verified against SQL Server 2022 |
 | E7 · Reports | R-1 – R-4 | Done — verified against SQL Server 2022 |
-| Phase 7 · Polish | V-3, S-5, G-3, R-3, R-4 | Not started |
+| Phase 7 · Polish | V-3, S-5 | Done — G-3, R-3 and R-4 shipped earlier, in E5 and E7 |

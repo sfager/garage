@@ -1,6 +1,5 @@
 using Garage.Domain;
 using Garage.Domain.Repositories;
-using Garage.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
 namespace Garage.Infrastructure.Persistence.Repositories;

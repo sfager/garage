@@ -1,5 +1,6 @@
+using Garage.Domain;
+using Garage.Domain.Repositories;
 using Garage.Domain.Services;
-using Garage.Domain.ValueObjects;
 using NUnit.Framework;
 
 namespace Garage.Domain.Tests;

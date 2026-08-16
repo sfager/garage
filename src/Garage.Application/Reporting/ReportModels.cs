@@ -1,5 +1,6 @@
+using Garage.Domain;
+using Garage.Domain.Repositories;
 using Garage.Domain.Services;
-using Garage.Domain.ValueObjects;
 
 namespace Garage.Application.Reporting;
 
