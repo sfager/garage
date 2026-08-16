@@ -27,6 +27,21 @@ Garage.Web  ──────►  Garage.Infrastructure  ──────► 
 The Web project references Infrastructure only so `Program.cs` can register it. No component
 touches `GarageDbContext` directly — they go through the Application abstractions.
 
+### Where repository interfaces live
+
+New repository interfaces go in **`Garage.Domain/Repositories`** — the contract sits with
+the model it describes. Because the Domain depends on nothing outside itself, an interface
+there may only return Domain types; `IReportRepository` defines its own `CostLine` and
+`OdometerPoint` records rather than borrowing Application DTOs.
+
+The interfaces written before this convention (`IVehicleRepository`, `IMileageRepository`,
+`IReminderRepository`, `IServiceRecordRepository`, `IFuelRepository`, `IDocumentRepository`,
+`IHouseholdRepository`) are still in `Garage.Application/Abstractions`. Some of them return
+Application DTOs, so moving them means giving those return types a Domain-side equivalent
+first — not a rename. The non-repository abstractions (`IClock`, `ICurrentUser`,
+`IFileStore`, `IUnitOfWork`, and the store and lookup interfaces) belong in Application
+either way, since they describe application concerns rather than the model.
+
 ## Design decisions taken from the backlog's "Open decisions"
 
 | Decision | Choice |
@@ -172,5 +187,5 @@ dotnet test
 | E4 · Logging a service | L-1 – L-4 | Done — verified against SQL Server 2022 |
 | E5 · Fuel and running costs | G-1, G-2, G-3 | Done — verified against SQL Server 2022 |
 | E6 · Documents | D-1, D-2, D-3 | Done — verified against SQL Server 2022 |
-| E7 · Reports | R-1 – R-4 | Not started |
+| E7 · Reports | R-1 – R-4 | Done — verified against SQL Server 2022 |
 | Phase 7 · Polish | V-3, S-5, G-3, R-3, R-4 | Not started |
