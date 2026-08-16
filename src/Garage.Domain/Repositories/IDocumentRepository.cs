@@ -1,7 +1,7 @@
 using Garage.Domain;
 using Garage.Domain.Entities;
 
-namespace Garage.Application.Abstractions;
+namespace Garage.Domain.Repositories;
 
 public interface IDocumentRepository : IRepository<Document>
 {

@@ -2,6 +2,7 @@ using Garage.Application.Abstractions;
 using Garage.Domain;
 using Garage.Domain.Common;
 using Garage.Domain.Entities;
+using Garage.Domain.Repositories;
 
 namespace Garage.Application.Documents;
 

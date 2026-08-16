@@ -1,7 +1,7 @@
-using Garage.Application.Abstractions;
-using Garage.Application.Vehicles;
 using Garage.Domain.Common;
 using Garage.Domain.Entities;
+using Garage.Domain.Repositories;
+using Garage.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
 namespace Garage.Infrastructure.Persistence.Repositories;
