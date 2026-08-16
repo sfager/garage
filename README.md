@@ -18,8 +18,8 @@ Garage.Web  ──────►  Garage.Infrastructure  ──────► 
 
 | Project | Contains | Depends on |
 | --- | --- | --- |
-| `src/Garage.Domain` | Entities, ValueObjects, invariants, enums, Repository interfaces/abstractions. No framework references at all. | — |
-| `src/Garage.Application` | Service abstractions, application services, DTOs. | Domain |
+| `src/Garage.Domain` | Entities, invariants, enums. No framework references at all. | — |
+| `src/Garage.Application` | Repository and service abstractions, application services, DTOs. | Domain |
 | `src/Garage.Infrastructure` | EF Core SQL Server context, configurations, repositories, migrations, ASP.NET Identity user. | Application |
 | `src/Garage.Web` | Blazor components, layout, and the presentation-owned implementations of `ICurrentUser` and `ISelectedVehicleStore`. | Application, Infrastructure |
 | `tests/Garage.Domain.Tests` | NUnit tests for the domain rules. | Domain, Application |
@@ -98,6 +98,14 @@ Receipts are an exception: the file is written to the store as soon as it is pic
 survives the same restart, and only the `Document` row waits for the save. Discarding a
 draft deletes those files.
 
+## Reminders have two shapes
+
+Most reminders are **interval-based**: every 5,000 miles, every 6 months, or whichever
+comes first. Story D-2 added a second shape — a **one-shot reminder that fires on a given
+day**, which is what a registration expiring on 3 September actually is. `Reminder.OnDate`
+creates these; they carry a `FixedDueDate`, never repeat after service, and project through
+the same `ReminderProjector` so they band and sort alongside everything else.
+
 ## Uploaded files
 
 Vehicle photos — and later receipts and documents — are written under
@@ -163,6 +171,6 @@ dotnet test
 | E3 · Maintenance and reminders | S-1 – S-6 | Done, except notification delivery — see below |
 | E4 · Logging a service | L-1 – L-4 | Done — verified against SQL Server 2022 |
 | E5 · Fuel and running costs | G-1, G-2, G-3 | Done — verified against SQL Server 2022 |
-| E6 · Documents | D-1, D-2, D-3 | Not started |
+| E6 · Documents | D-1, D-2, D-3 | Done — verified against SQL Server 2022 |
 | E7 · Reports | R-1 – R-4 | Not started |
 | Phase 7 · Polish | V-3, S-5, G-3, R-3, R-4 | Not started |

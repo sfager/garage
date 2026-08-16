@@ -1,11 +1,200 @@
 @page "/documents"
 @attribute [Authorize]
+@using Garage.Application.Documents
+@implements IDisposable
 
 <PageTitle>Documents · Garage</PageTitle>
 
-<VehicleSwitcher Compact="true" />
+@* Wireframe 1l: expiry warnings on top, then the file grid, then receipts grouped by
+   the service record they came from. *@
 
-<div class="empty">
-    <h4>Documents</h4>
-    <p class="mono">This screen is built in epic E6.</p>
-</div>
+<VehicleSwitcher Compact="true">
+    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _uploading = true">＋ Upload</button>
+</VehicleSwitcher>
+
+@if (_vehicle is null)
+{
+    <div class="empty">
+        <h4>No vehicle selected</h4>
+        <a class="btn btn-primary" href="/vehicles/add">Add a vehicle</a>
+    </div>
+}
+else
+{
+    <h4 style="margin:0">Documents</h4>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-error">@_error</div>
+    }
+    @if (_message is not null)
+    {
+        <div class="alert alert-info">@_message</div>
+    }
+
+    @* Story D-2: anything lapsing within 30 days surfaces at the top. *@
+    @foreach (var card in _files.Where(f => f.NeedsAttention))
+    {
+        <div class="card card-accent">
+            <div class="card-kicker">
+                @(card.HasExpired ? "Expired" : $"Expires in {card.DaysUntilExpiry} days")
+            </div>
+            <div class="card-title">@card.Title</div>
+            <div class="mono">@Humanize(card.Type) · @card.ExpiryDescription — @card.ExpiresOn?.ToString("MMM d, yyyy")</div>
+            <div class="row">
+                <a class="btn btn-secondary btn-sm" href="@($"/documents/{card.Id}")">Open</a>
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="() => RemindAsync(card)">
+                    Remind me @RemindOn(card)
+                </button>
+            </div>
+        </div>
+    }
+
+    @if (_files.Count == 0)
+    {
+        <div class="empty">
+            <h4>Nothing filed yet</h4>
+            <p class="mono">Keep insurance, registration, the title and inspections with the car.</p>
+            <button type="button" class="btn btn-primary" @onclick="() => _uploading = true">＋ Upload a document</button>
+        </div>
+    }
+    else
+    {
+        <div class="grid-2">
+            @foreach (var card in _files)
+            {
+                <a href="@($"/documents/{card.Id}")" style="text-decoration:none;color:inherit">
+                    @if (card.IsImage)
+                    {
+                        <img src="@Docs.GetUrl(card.StoragePath)" alt="@card.Title"
+                             style="height:92px;width:100%;object-fit:cover;border:1px solid var(--color-divider)" />
+                    }
+                    else
+                    {
+                        <div class="ph" style="height:92px">
+                            <span class="mono">@card.Title<br />@Extension(card.FileName)</span>
+                        </div>
+                    }
+                    <div class="mono" style="margin-top:4px">@card.Title · @card.ExpiryDescription</div>
+                </a>
+            }
+            <button type="button" class="ph" style="height:92px;cursor:pointer" @onclick="() => _uploading = true">
+                <span class="mono">＋ add file</span>
+            </button>
+        </div>
+    }
+
+    @* Story D-3: receipts grouped by the service they belong to. *@
+    <div class="sec">Receipts attached to services</div>
+
+    @if (_receiptGroups.Count == 0)
+    {
+        <p class="mono">No receipts yet. Photograph one while logging a service and it lands here.</p>
+    }
+    else
+    {
+        @foreach (var group in _receiptGroups)
+        {
+            <a class="li" style="text-decoration:none;color:inherit" href="@($"/service/history/{group.ServiceRecordId}")">
+                <span>
+                    @group.Summary — @group.Date.ToString("MMM d, yyyy")
+                    <div class="mono">opens the service record</div>
+                </span>
+                <span class="mono">@group.Receipts.Count photo@(group.Receipts.Count == 1 ? "" : "s")</span>
+            </a>
+        }
+    }
+
+    @if (_uploading)
+    {
+        <DocumentUploadDialog VehicleId="_vehicle.Id"
+                              OnClose="() => _uploading = false"
+                              OnUploaded="OnUploadedAsync" />
+    }
+}
+
+@code {
+    [Inject] private VehicleContext Context { get; set; } = default!;
+    [Inject] private DocumentService Docs { get; set; } = default!;
+    [Inject] private IClock Clock { get; set; } = default!;
+
+    private VehicleSummary? _vehicle;
+    private IReadOnlyList<DocumentCard> _files = [];
+    private IReadOnlyList<ReceiptGroup> _receiptGroups = [];
+    private bool _uploading;
+    private string? _error;
+    private string? _message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Context.Changed += OnContextChanged;
+        await Context.EnsureLoadedAsync();
+        await ReloadAsync();
+    }
+
+    private async Task OnContextChanged()
+    {
+        await ReloadAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ReloadAsync()
+    {
+        _vehicle = Context.Selected;
+
+        if (_vehicle is null)
+        {
+            _files = [];
+            _receiptGroups = [];
+            return;
+        }
+
+        _files = await Docs.ListFilesAsync(_vehicle.Id);
+        _receiptGroups = await Docs.ListReceiptGroupsAsync(_vehicle.Id);
+    }
+
+    private async Task OnUploadedAsync()
+    {
+        _uploading = false;
+        await ReloadAsync();
+    }
+
+    /// <summary>The wireframe's "Remind me Aug 27" — a week before it lapses [1l].</summary>
+    private string RemindOn(DocumentCard card) =>
+        card.ExpiresOn is { } expiry
+            ? Max(expiry.AddDays(-7), Clock.Today).ToString("MMM d")
+            : string.Empty;
+
+    private static DateOnly Max(DateOnly a, DateOnly b) => a > b ? a : b;
+
+    private async Task RemindAsync(DocumentCard card)
+    {
+        _error = null;
+        _message = null;
+
+        try
+        {
+            var reminder = await Docs.CreateExpiryReminderAsync(card.Id);
+            _message = $"Reminder set for {reminder.DueDate:MMM d, yyyy}.";
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private static string Extension(string fileName) =>
+        Path.GetExtension(fileName).TrimStart('.').ToUpperInvariant() is { Length: > 0 } ext ? ext : "FILE";
+
+    private static string Humanize(DocumentType type) => type switch
+    {
+        DocumentType.Insurance => "Insurance",
+        DocumentType.Registration => "Registration",
+        DocumentType.Title => "Title",
+        DocumentType.Inspection => "Inspection",
+        DocumentType.Receipt => "Receipt",
+        _ => "Other"
+    };
+
+    public void Dispose() => Context.Changed -= OnContextChanged;
+}

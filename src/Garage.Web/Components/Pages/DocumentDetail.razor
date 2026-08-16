@@ -1,0 +1,214 @@
+@page "/documents/{DocumentId:guid}"
+@attribute [Authorize]
+@using Garage.Application.Documents
+
+<PageTitle>Document · Garage</PageTitle>
+
+@* Story D-1: documents open full-screen and can be shared or deleted. *@
+
+<div class="row-between">
+    <a class="btn btn-ghost btn-sm" href="/documents">← Documents</a>
+</div>
+
+@if (_loading)
+{
+    <p class="mono">Loading…</p>
+}
+else if (_card is null)
+{
+    <div class="empty">
+        <h4>Not found</h4>
+        <p class="mono">That document is not in your garage.</p>
+        <a class="btn btn-secondary" href="/documents">Back to documents</a>
+    </div>
+}
+else
+{
+    <h3 style="margin:0">@_card.Title</h3>
+    <div class="mono">@Humanize(_card.Type) · @(_card.SizeBytes / 1024) KB · @_card.ExpiryDescription</div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-error">@_error</div>
+    }
+    @if (_message is not null)
+    {
+        <div class="alert alert-info">
+            @_message
+            @if (_shareUrl is not null)
+            {
+                <input class="input" readonly value="@_shareUrl" @onfocus="SelectAllAsync" style="margin-top:6px" />
+            }
+        </div>
+    }
+
+    @if (_card.IsImage)
+    {
+        <img src="@Docs.GetUrl(_card.StoragePath)" alt="@_card.Title"
+             style="width:100%;border:1px solid var(--color-divider)" />
+    }
+    else
+    {
+        @* A PDF renders inline where the browser supports it, and downloads where it does not. *@
+        <object data="@Docs.GetUrl(_card.StoragePath)" type="@_card.ContentType"
+                style="width:100%;height:70vh;border:1px solid var(--color-divider)">
+            <div class="ph" style="height:200px">
+                <span class="mono">@_card.FileName — open it below</span>
+            </div>
+        </object>
+    }
+
+    <div class="row" style="flex-wrap:wrap">
+        <a class="btn btn-primary" href="@Docs.GetUrl(_card.StoragePath)" target="_blank" rel="noopener">Open</a>
+        <a class="btn btn-secondary" href="@Docs.GetUrl(_card.StoragePath)" download="@_card.FileName">Download</a>
+        <button type="button" class="btn btn-secondary" @onclick="ShareAsync">Share</button>
+        <button type="button" class="btn btn-danger" @onclick="() => _confirmingDelete = true">Delete</button>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="sec">Details</div>
+    <EditForm Model="_edit" OnValidSubmit="SaveAsync" FormName="document-edit">
+        <DataAnnotationsValidator />
+        <div class="stack">
+            <div class="field">
+                <label for="title">Title</label>
+                <InputText id="title" class="input" @bind-Value="_edit.Title" />
+                <ValidationMessage For="() => _edit.Title" />
+            </div>
+            <div class="field">
+                <label for="expiry">Expires on</label>
+                <InputDate id="expiry" class="input" @bind-Value="_expiry" />
+            </div>
+            <button type="submit" class="btn btn-secondary" disabled="@_busy">Save details</button>
+        </div>
+    </EditForm>
+
+    @if (_confirmingDelete)
+    {
+        <div class="dialog-backdrop" @onclick="() => _confirmingDelete = false">
+            <div class="dialog" @onclick:stopPropagation="true">
+                <div class="dialog-title">Delete @_card.Title?</div>
+                <p>The file is removed for good. This cannot be undone.</p>
+                <div class="dialog-actions">
+                    <button type="button" class="btn btn-secondary" @onclick="() => _confirmingDelete = false">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="DeleteAsync">Delete</button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private DocumentService Docs { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    [Parameter] public Guid DocumentId { get; set; }
+
+    private DocumentCard? _card;
+    private DocumentUploadRequest _edit = new();
+    private DateTime? _expiry;
+    private string? _error;
+    private string? _message;
+    private string? _shareUrl;
+    private bool _loading = true;
+    private bool _busy;
+    private bool _confirmingDelete;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _card = await Docs.GetAsync(DocumentId);
+
+        if (_card is not null)
+        {
+            _edit = new DocumentUploadRequest { Title = _card.Title, Type = _card.Type, ExpiresOn = _card.ExpiresOn };
+            _expiry = _card.ExpiresOn?.ToDateTime(TimeOnly.MinValue);
+        }
+
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        _error = null;
+        _message = null;
+
+        try
+        {
+            DateOnly? expiry = _expiry is { } date ? DateOnly.FromDateTime(date) : null;
+            await Docs.UpdateAsync(DocumentId, _edit.Title, _edit.Type, expiry);
+
+            _card = await Docs.GetAsync(DocumentId);
+            _message = "Saved.";
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    /// <summary>
+    /// Uses the device's share sheet where it exists and falls back to copying the link.
+    /// The link is only readable by this household, so it is a pointer for the people
+    /// who already share the garage, not a public URL.
+    /// </summary>
+    private async Task ShareAsync()
+    {
+        if (_card is null)
+        {
+            return;
+        }
+
+        _message = null;
+        _error = null;
+
+        var url = Navigation.ToAbsoluteUri(Docs.GetUrl(_card.StoragePath)).ToString();
+        var result = await JS.InvokeAsync<string>("garage.share", _card.Title, url);
+
+        // "unavailable" means neither the share sheet nor the clipboard worked, so the
+        // link is put on screen instead of the button appearing to do nothing.
+        _shareUrl = result == "unavailable" ? url : null;
+
+        _message = result switch
+        {
+            "copied" => "Link copied. Only people who share this garage can open it.",
+            "unavailable" => "Copy this link — only people who share this garage can open it.",
+            _ => null
+        };
+    }
+
+    /// <summary>Selecting the whole link on focus makes the manual copy one gesture.</summary>
+    private Task SelectAllAsync(FocusEventArgs _) => JS.InvokeVoidAsync("garage.selectAll").AsTask();
+
+    private async Task DeleteAsync()
+    {
+        _confirmingDelete = false;
+
+        try
+        {
+            await Docs.DeleteAsync(DocumentId);
+            Navigation.NavigateTo("/documents");
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private static string Humanize(DocumentType type) => type switch
+    {
+        DocumentType.Insurance => "Insurance",
+        DocumentType.Registration => "Registration",
+        DocumentType.Title => "Title",
+        DocumentType.Inspection => "Inspection",
+        DocumentType.Receipt => "Receipt",
+        _ => "Other"
+    };
+}

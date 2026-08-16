@@ -13,6 +13,14 @@ public class Reminder : Entity
 {
     private Reminder() { }
 
+    /// <summary>
+    /// A one-shot reminder that fires on a given day rather than after an interval —
+    /// a registration expiring on the 3rd, an inspection due in March. Story D-2 sets
+    /// these from a document's expiry warning.
+    /// </summary>
+    public static Reminder OnDate(Guid vehicleId, string item, DateOnly dueOn, int anchorOdometer, DateOnly anchorDate) =>
+        new(vehicleId, item, null, null, anchorOdometer, anchorDate, repeatAfterService: false, fixedDueDate: dueOn);
+
     public Reminder(
         Guid vehicleId,
         string item,
@@ -20,14 +28,15 @@ public class Reminder : Entity
         int? monthInterval,
         int anchorOdometer,
         DateOnly anchorDate,
-        bool repeatAfterService = true)
+        bool repeatAfterService = true,
+        DateOnly? fixedDueDate = null)
     {
         if (string.IsNullOrWhiteSpace(item))
         {
             throw new DomainException("A reminder needs to say what it is for.");
         }
 
-        if (mileageInterval is null && monthInterval is null)
+        if (mileageInterval is null && monthInterval is null && fixedDueDate is null)
         {
             throw new DomainException("Set a mileage interval, a month interval, or both.");
         }
@@ -49,6 +58,7 @@ public class Reminder : Entity
         AnchorOdometer = anchorOdometer;
         AnchorDate = anchorDate;
         RepeatAfterService = repeatAfterService;
+        FixedDueDate = fixedDueDate;
     }
 
     public Guid VehicleId { get; private set; }
@@ -77,41 +87,47 @@ public class Reminder : Entity
         ? null
         : Math.Max(AnchorOdometer + MileageInterval.Value, SnoozedToOdometer ?? int.MinValue);
 
+    /// <summary>Set on a one-shot reminder that fires on a specific day (story D-2).</summary>
+    public DateOnly? FixedDueDate { get; private set; }
+
     /// <summary>The date this is due on, snooze included. Null when it is mileage-only.</summary>
     public DateOnly? DueDate
     {
         get
         {
-            if (MonthInterval is null)
+            var due = FixedDueDate ?? (MonthInterval is { } months ? AnchorDate.AddMonths(months) : null);
+
+            if (due is null)
             {
                 return SnoozedToDate;
             }
 
-            var due = AnchorDate.AddMonths(MonthInterval.Value);
             return SnoozedToDate > due ? SnoozedToDate : due;
         }
     }
 
     /// <summary>The plain-English trigger line the wireframes print under each item.</summary>
-    public string TriggerDescription => (MileageInterval, MonthInterval) switch
+    public string TriggerDescription => (MileageInterval, MonthInterval, FixedDueDate) switch
     {
-        (not null, not null) => $"{DueOdometer:N0} mi or {DueDate:MMM yyyy} — whichever first",
-        (not null, null) => $"{DueOdometer:N0} mi",
-        (null, not null) => $"{DueDate:MMM yyyy}",
+        (not null, not null, _) => $"{DueOdometer:N0} mi or {DueDate:MMM yyyy} — whichever first",
+        (not null, null, _) => $"{DueOdometer:N0} mi",
+        (null, not null, _) => $"{DueDate:MMM yyyy}",
+        (null, null, not null) => $"{DueDate:MMM d, yyyy}",
         _ => "no trigger set"
     };
 
-    public string IntervalDescription => (MileageInterval, MonthInterval) switch
+    public string IntervalDescription => (MileageInterval, MonthInterval, FixedDueDate) switch
     {
-        (not null, not null) => $"{MileageInterval:N0} mi / {MonthInterval} mo",
-        (not null, null) => $"{MileageInterval:N0} mi",
-        (null, not null) => $"{MonthInterval} mo",
+        (not null, not null, _) => $"{MileageInterval:N0} mi / {MonthInterval} mo",
+        (not null, null, _) => $"{MileageInterval:N0} mi",
+        (null, not null, _) => $"{MonthInterval} mo",
+        (null, null, not null) => "one-off",
         _ => "—"
     };
 
     public void UpdateIntervals(int? mileageInterval, int? monthInterval)
     {
-        if (mileageInterval is null && monthInterval is null)
+        if (mileageInterval is null && monthInterval is null && FixedDueDate is null)
         {
             throw new DomainException("Set a mileage interval, a month interval, or both.");
         }

@@ -1,8 +1,6 @@
 using Garage.Application.Abstractions;
 using Garage.Domain.Common;
 using Garage.Domain.Entities;
-using Garage.Domain.Repositories;
-using Garage.Domain.ValueObjects;
 
 namespace Garage.Application.Vehicles;
 
