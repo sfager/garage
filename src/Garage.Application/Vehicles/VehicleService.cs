@@ -1,4 +1,5 @@
 using Garage.Application.Abstractions;
+using Garage.Application.Files;
 using Garage.Domain.Common;
 using Garage.Domain.Entities;
 using Garage.Domain.Repositories;
@@ -86,8 +87,13 @@ public class VehicleService(
     public async Task SetPhotoAsync(Guid vehicleId, Stream content, string fileName, CancellationToken cancellationToken = default)
     {
         var vehicle = await RequireAsync(vehicleId, cancellationToken);
-        var previous = vehicle.PhotoPath;
 
+        if (!UploadPolicy.IsImage(fileName))
+        {
+            throw new DomainException("A vehicle photo has to be an image — JPEG, PNG, GIF, WebP or HEIC.");
+        }
+
+        var previous = vehicle.PhotoPath;
         var key = await fileStore.SaveAsync(content, fileName, "vehicles", cancellationToken);
         vehicle.SetPhoto(key);
         await unitOfWork.SaveChangesAsync(cancellationToken);

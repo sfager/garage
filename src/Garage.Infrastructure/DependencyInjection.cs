@@ -1,5 +1,6 @@
 using Garage.Application.Abstractions;
 using Garage.Domain.Repositories;
+using Garage.Infrastructure.Identity;
 using Garage.Infrastructure.Notifications;
 using Garage.Infrastructure.Persistence;
 using Garage.Infrastructure.Persistence.Repositories;
@@ -45,6 +46,8 @@ public static class DependencyInjection
 
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<GarageDbContext>());
         services.AddScoped<IHouseholdRepository, HouseholdRepository>();
+        services.AddScoped<IHouseholdInvitationRepository, HouseholdInvitationRepository>();
+        services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddScoped<IVehicleRepository, VehicleRepository>();
         services.AddScoped<IMileageRepository, MileageRepository>();
         services.AddScoped<IReminderRepository, ReminderRepository>();

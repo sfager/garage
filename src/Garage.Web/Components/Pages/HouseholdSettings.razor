@@ -1,0 +1,218 @@
+@page "/settings/household"
+@attribute [Authorize]
+@using Garage.Application.Households
+
+<PageTitle>Household · Garage</PageTitle>
+
+@* Accounts exist per person; a household is what makes two people see the same cars.
+   This is where someone is invited into one. *@
+
+<div class="row-between">
+    <a class="btn btn-ghost btn-sm" href="/">← Home</a>
+    <span class="mono">Household</span>
+</div>
+
+@if (_overview is null)
+{
+    <p class="mono">Loading…</p>
+}
+else
+{
+    <h3 style="margin:0">@_overview.Name</h3>
+    <p class="mono">
+        @_overview.Members.Count @(_overview.Members.Count == 1 ? "person" : "people") ·
+        @_overview.VehicleCount @(_overview.VehicleCount == 1 ? "vehicle" : "vehicles")
+    </p>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-error">@_error</div>
+    }
+
+    @* The code exists in the clear exactly once — here, now. *@
+    @if (_created is not null)
+    {
+        <div class="card card-accent">
+            <div class="card-kicker">Invitation created</div>
+            <div class="card-title" style="font-family:var(--font-mono);letter-spacing:.08em">@_created.Code</div>
+            <div class="mono">
+                Share this link or the code. It works once and expires
+                @_created.ExpiresUtc.ToLocalTime().ToString("MMM d, yyyy").
+            </div>
+            <input class="input" readonly value="@JoinLink" @onfocus="SelectAllAsync" />
+            <div class="row">
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="CopyAsync">Copy link</button>
+                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _created = null">Done</button>
+            </div>
+            <div class="mono">
+                We will not show this code again — anyone who has it can join and see these cars.
+            </div>
+        </div>
+    }
+
+    <div class="sec">People</div>
+    @foreach (var member in _overview.Members)
+    {
+        <div class="li">
+            <span>@member.DisplayName</span>
+            <span class="mono">@(member.UserId == _currentUserId ? "you" : "shares this garage")</span>
+        </div>
+    }
+
+    <button type="button" class="btn btn-primary btn-block" disabled="@_busy" @onclick="InviteAsync">
+        @(_busy ? "Creating…" : "＋ Invite someone")
+    </button>
+
+    @if (_overview.Invitations.Count > 0)
+    {
+        <div class="sec">Invitations</div>
+        @foreach (var invitation in _overview.Invitations)
+        {
+            <div class="li">
+                <span>
+                    Created @invitation.CreatedUtc.ToLocalTime().ToString("MMM d")
+                    <div class="mono">
+                        @invitation.Status@(invitation.IsPending ? $" · expires {invitation.ExpiresUtc.ToLocalTime():MMM d}" : null)
+                    </div>
+                </span>
+                @if (invitation.IsPending)
+                {
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => RevokeAsync(invitation.Id)">
+                        Withdraw
+                    </button>
+                }
+            </div>
+        }
+    }
+
+    <div class="hr"></div>
+
+    <div class="sec">Leaving</div>
+    @if (_overview.CanLeave)
+    {
+        <p class="mono">
+            Leaving gives you a fresh, empty garage. These cars stay with whoever is left.
+        </p>
+        <button type="button" class="btn btn-danger" @onclick="() => _confirmingLeave = true">Leave this household</button>
+    }
+    else
+    {
+        <p class="mono">@_overview.CannotLeaveReason</p>
+    }
+
+    @if (_confirmingLeave)
+    {
+        <div class="dialog-backdrop" @onclick="() => _confirmingLeave = false">
+            <div class="dialog" @onclick:stopPropagation="true">
+                <div class="dialog-title">Leave @_overview.Name?</div>
+                <p>
+                    You will no longer see these @_overview.VehicleCount
+                    @(_overview.VehicleCount == 1 ? "vehicle" : "vehicles") or their history.
+                    You will start again with an empty garage.
+                </p>
+                <div class="dialog-actions">
+                    <button type="button" class="btn btn-secondary" @onclick="() => _confirmingLeave = false">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="LeaveAsync">Leave</button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private HouseholdService Households { get; set; } = default!;
+    [Inject] private ICurrentUser CurrentUser { get; set; } = default!;
+    [Inject] private VehicleContext Context { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private HouseholdOverview? _overview;
+    private CreatedInvitation? _created;
+    private string? _currentUserId;
+    private string? _error;
+    private bool _busy;
+    private bool _confirmingLeave;
+
+    private string JoinLink => _created is null
+        ? string.Empty
+        : Navigation.ToAbsoluteUri($"/join/{_created.Code}").ToString();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUserId = await CurrentUser.GetUserIdAsync();
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            _overview = await Households.GetOverviewAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task InviteAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            _created = await Households.InviteAsync();
+            await ReloadAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RevokeAsync(Guid invitationId)
+    {
+        _error = null;
+
+        try
+        {
+            await Households.RevokeAsync(invitationId);
+            await ReloadAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task LeaveAsync()
+    {
+        _confirmingLeave = false;
+
+        try
+        {
+            await Households.LeaveAsync();
+
+            // The whole app is scoped to the household, so everything must be re-read.
+            await Context.ReloadAsync();
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private Task SelectAllAsync(FocusEventArgs _) => JS.InvokeVoidAsync("garage.selectAll").AsTask();
+
+    private async Task CopyAsync()
+    {
+        var result = await JS.InvokeAsync<string>("garage.share", "Join my garage", JoinLink);
+        _error = result == "unavailable" ? "Could not copy — select the link above instead." : null;
+    }
+}

@@ -17,6 +17,11 @@
         <div class="shell-top-actions">
             <AuthorizeView>
                 <Authorized>
+                    <MoreMenu />
+                </Authorized>
+            </AuthorizeView>
+            <AuthorizeView>
+                <Authorized>
                     <a class="btn btn-secondary btn-sm" href="Account/Manage">@context.User.Identity?.Name</a>
                     @* The endpoint redirects to "~/{ReturnUrl}", so this must be a relative
                        path with no leading slash — "/" would build "~//", which is

@@ -1,5 +1,6 @@
 using Garage.Application.Documents;
 using Garage.Application.Fuel;
+using Garage.Application.Households;
 using Garage.Application.Maintenance;
 using Garage.Application.Mileage;
 using Garage.Application.Notifications;
@@ -20,6 +21,7 @@ public static class DependencyInjection
     {
         services.AddScoped<VehicleContext>();
         services.AddScoped<VehicleService>();
+        services.AddScoped<HouseholdService>();
         services.AddScoped<MileageService>();
         services.AddScoped<MaintenanceService>();
         services.AddScoped<ServiceLogWizard>();

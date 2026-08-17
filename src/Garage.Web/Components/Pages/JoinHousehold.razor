@@ -1,0 +1,167 @@
+@page "/join"
+@page "/join/{Code}"
+@attribute [Authorize]
+@using Garage.Application.Households
+
+<PageTitle>Join a garage · Garage</PageTitle>
+
+@* The invited person's side. It states what accepting will do — including what happens
+   to any cars they already have — before they decide. *@
+
+<div class="row-between">
+    <a class="btn btn-ghost btn-sm" href="/">← Home</a>
+    <span class="mono">Join a garage</span>
+</div>
+
+<h3 style="margin:0">Join a garage</h3>
+
+@if (_joined)
+{
+    <div class="card card-accent">
+        <div class="card-kicker">Done</div>
+        <div class="card-title">You are in @_preview?.HouseholdName</div>
+        <div class="mono">You and @(_preview?.InvitedBy ?? "the others") now see the same cars.</div>
+        <a class="btn btn-primary btn-block" href="/">Go to the garage</a>
+    </div>
+}
+else
+{
+    <div class="field">
+        <label for="code">Invitation code</label>
+        <input id="code" class="input" value="@_code" placeholder="ABCD-EFGH-JKMN-PQRS-TUVW"
+               @oninput="OnCodeInput" />
+        <div class="mono">Paste the code you were sent, or open the link directly.</div>
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-error">@_error</div>
+    }
+
+    @if (_preview is { } preview)
+    {
+        @if (!preview.IsUsable)
+        {
+            <div class="alert alert-error">@preview.Problem</div>
+        }
+        else
+        {
+            <div class="card card-accent">
+                <div class="card-kicker">Invitation</div>
+                <div class="card-title">@preview.HouseholdName</div>
+                <div class="mono">
+                    @preview.InvitedBy invited you. It has @preview.VehiclesInHousehold
+                    @(preview.VehiclesInHousehold == 1 ? "vehicle" : "vehicles").
+                </div>
+
+                @* The part people would not expect, said before they commit. *@
+                @if (preview.VehiclesYouWouldBring > 0)
+                {
+                    <div class="alert alert-info">
+                        Your @preview.VehiclesYouWouldBring
+                        @(preview.VehiclesYouWouldBring == 1 ? "vehicle" : "vehicles")
+                        and all of its history will move into this garage, where everyone
+                        here will be able to see it.
+                    </div>
+                }
+                else
+                {
+                    <div class="mono">Your garage is empty, so nothing of yours moves.</div>
+                }
+
+                <button type="button" class="btn btn-primary btn-block" disabled="@_busy" @onclick="AcceptAsync">
+                    @(_busy ? "Joining…" : $"Join {preview.HouseholdName}")
+                </button>
+            </div>
+        }
+    }
+    else if (!string.IsNullOrWhiteSpace(_code))
+    {
+        <button type="button" class="btn btn-secondary btn-block" disabled="@_busy" @onclick="PreviewAsync">
+            @(_busy ? "Checking…" : "Check this code")
+        </button>
+    }
+}
+
+@code {
+    [Inject] private HouseholdService Households { get; set; } = default!;
+    [Inject] private VehicleContext Context { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    [Parameter] public string? Code { get; set; }
+
+    private string _code = string.Empty;
+    private InvitationPreview? _preview;
+    private string? _error;
+    private bool _busy;
+    private bool _joined;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Code) || _code == Code)
+        {
+            return;
+        }
+
+        // Arriving by link checks the code straight away rather than making the person
+        // press a button to learn whether it is any good.
+        _code = Code;
+        await PreviewAsync();
+    }
+
+    private async Task OnCodeInput(ChangeEventArgs e)
+    {
+        _code = e.Value?.ToString() ?? string.Empty;
+        _preview = null;
+        _error = null;
+
+        // A full-length code is worth checking without being asked.
+        if (_code.Replace("-", string.Empty).Trim().Length >= 20)
+        {
+            await PreviewAsync();
+        }
+    }
+
+    private async Task PreviewAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            _preview = await Households.PreviewAsync(_code);
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task AcceptAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            await Households.AcceptAsync(_code);
+            _joined = true;
+
+            // Everything on screen is scoped to the old household; force a clean reload.
+            await Context.ReloadAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+            _preview = await Households.PreviewAsync(_code);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
