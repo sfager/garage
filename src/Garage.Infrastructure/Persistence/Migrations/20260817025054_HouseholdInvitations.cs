@@ -35,6 +35,7 @@ namespace Garage.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_HouseholdInvitations_Households_HouseholdId",
                         column: x => x.HouseholdId,
+                        principalSchema: "garage",
                         principalTable: "Households",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
