@@ -1,4 +1,5 @@
 using Garage.Application.Abstractions;
+using Garage.Application.Files;
 using Garage.Application.Maintenance;
 using Garage.Application.Vehicles;
 using Garage.Domain;
@@ -106,13 +107,16 @@ public class ServiceLogWizard(
         long sizeBytes,
         CancellationToken cancellationToken = default)
     {
+        var safeContentType = UploadPolicy.ResolveContentType(fileName)
+            ?? throw new DomainException($"That file type is not accepted. Use {UploadPolicy.Describe}.");
+
         var key = await fileStore.SaveAsync(content, fileName, "receipts", cancellationToken);
 
         Draft.Receipts.Add(new ReceiptDraft
         {
             StorageKey = key,
             FileName = fileName,
-            ContentType = contentType,
+            ContentType = safeContentType,
             SizeBytes = sizeBytes
         });
 

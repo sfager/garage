@@ -93,8 +93,28 @@ demo@garage.local / Demo123!
 Set `Garage:SeedDemoData` to `false` to start with an empty garage instead.
 
 Registering a new account creates a household for that user on first use, so a new
-sign-up starts with an empty garage. To let a second person share the same cars, point
-their `AspNetUsers.HouseholdId` at the existing household.
+sign-up starts with an empty garage. To share those cars with someone else, invite them —
+see below.
+
+## Sharing a garage with someone
+
+Accounts are per person; a **household** is what makes two people see the same cars. At
+`/settings/household` you can invite someone, see who is already there, withdraw an
+invitation, and leave.
+
+An invitation is a single-use code that expires after seven days. Only a SHA-256 hash of
+it is stored — the code itself is shown once, when it is created, and a leaked database
+should not hand anybody the keys to a garage. Codes avoid I, O, 0 and 1 so one read aloud
+stays the same code.
+
+Two cases are handled explicitly rather than left to chance:
+
+- **The joiner already has cars.** They move into the shared garage along with all their
+  history, and the join screen says so *before* the decision, naming the count. Their old,
+  now-empty household is removed.
+- **The last person tries to leave.** Refused while cars remain, because it would leave
+  them unreachable. Leaving otherwise gives that person a fresh, empty garage; the shared
+  cars stay with whoever is left, which the confirmation states.
 
 ## VIN lookup
 
@@ -233,3 +253,30 @@ dotnet test
 | E6 · Documents | D-1, D-2, D-3 | Done — verified against SQL Server 2022 |
 | E7 · Reports | R-1 – R-4 | Done — verified against SQL Server 2022 |
 | Phase 7 · Polish | V-3, S-5 | Done — G-3, R-3 and R-4 shipped earlier, in E5 and E7 |
+
+## Security
+
+A review was run over the whole codebase. What it found, and what was done:
+
+| Finding | Resolution |
+| --- | --- |
+| **Stored XSS via uploaded files** — an uploaded `.html` was served from the app's own origin as `text/html`, so opening a "document" ran script as the signed-in user. In a shared household, one member could have attacked another. | Uploads are now checked against a server-side allowlist (`UploadPolicy`), the content type is derived from that allowlist rather than from what the browser claimed, anything not safe to render is sent as `Content-Disposition: attachment`, and every file is served with `X-Content-Type-Options: nosniff`. Files uploaded before the fix are neutralised by the serving rules. |
+| **Unsubscribe had no ownership check** — `PushSubscriptionService.UnsubscribeAsync` deleted by endpoint alone, so anyone holding another household's endpoint could silence its notifications. | The subscription must belong to the caller's household. |
+| **Unlimited password guessing** — the scaffolded sign-in passed `lockoutOnFailure: false`. | Failures now count towards lockout. |
+| **An unscoped public helper** — `MaintenanceService.GetMilesPerDayAsync` did not scope to the household. Not reachable from outside, but a future caller could have passed an untrusted id. | Made private, with a comment saying why. |
+
+Checked and found sound: every routable page carries `[Authorize]` (only the error and not-found pages do not); every repository lookup by id is scoped to the caller's household, and the file endpoint verifies ownership and returns 404 rather than 403; invitation codes are 160-bit, stored only as a SHA-256 hash, single-use and expiring; storage keys are generated, never taken from the client, and path traversal is refused; no raw SQL and no raw HTML rendering anywhere; antiforgery, HTTPS redirection and HSTS are all in place.
+
+## Known gaps
+
+Every story in the backlog is implemented. These are the places where an acceptance
+criterion is met only partly, or where verification stopped short of proof.
+
+| Gap | Detail |
+| --- | --- |
+| **Plate lookup (V-1)** | No provider is wired — plate-to-VIN needs a commercial service. Choosing "Plate" says so and goes to manual entry. |
+| **Fuel rows in the history table (R-2)** | "Rows open the underlying record" holds for service records; a fuel row opens the Fuel screen rather than that entry, because fill-ups have no detail page. |
+| **Push delivery (S-5) unproven** | The sweep, dedup and subscription handling are unit-tested, but no notification has been delivered to a real browser: the development browser blocks notifications and service workers. The last hop needs confirming on a real device. |
+| **Barcode scanning (V-3) unproven** | The failure paths are verified; reading an actual VIN barcode needs a camera and a plate to point it at. |
+| **Test shape** | The Domain is covered by 107 unit tests. Application services — maintenance, reporting, fuel, documents, the wizard — were verified by exercising the running app, not by unit tests. There are no integration tests against SQL Server and no component tests. |
+| **Two accepted risks from the security review** | Email addresses are not verified at sign-up (`RequireConfirmedAccount = false`), because no email sender is configured — re-enable it once one is. And `appsettings.json` ships a default SQL Server connection string containing an `sa` password; production must override it, and it should be emptied before this is deployed anywhere real. |

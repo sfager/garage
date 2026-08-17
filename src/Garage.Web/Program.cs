@@ -1,5 +1,6 @@
 using Garage.Application;
 using Garage.Application.Abstractions;
+using Garage.Application.Files;
 using Garage.Domain.Repositories;
 using Garage.Infrastructure;
 using Garage.Infrastructure.Identity;
@@ -141,10 +142,15 @@ app.MapGet($"{fileStoreOptions.RequestPath}/{{**storageKey}}", async (
             return Results.NotFound();
         }
 
-        if (!contentTypes.TryGetContentType(storageKey, out var contentType))
-        {
-            contentType = "application/octet-stream";
-        }
+        // The type comes from the allowlist, not from sniffing and not from whatever the
+        // uploader claimed. Anything not safe to render is sent as a download, and nosniff
+        // stops the browser second-guessing either decision.
+        var contentType = UploadPolicy.ResolveContentType(storageKey) ?? "application/octet-stream";
+        var inline = UploadPolicy.CanRenderInline(contentType);
+
+        http.Response.Headers.XContentTypeOptions = "nosniff";
+        http.Response.Headers.ContentDisposition = inline ? "inline" : "attachment";
+        http.Response.Headers.CacheControl = "private, max-age=0, no-store";
 
         return Results.File(stream, contentType);
     })

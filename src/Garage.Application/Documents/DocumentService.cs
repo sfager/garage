@@ -1,4 +1,5 @@
 using Garage.Application.Abstractions;
+using Garage.Application.Files;
 using Garage.Domain;
 using Garage.Domain.Common;
 using Garage.Domain.Entities;
@@ -36,11 +37,17 @@ public class DocumentService(
         ArgumentNullException.ThrowIfNull(request);
 
         var vehicle = await RequireVehicleAsync(vehicleId, cancellationToken);
+
+        // The content type is decided from the allowlist, never taken from the browser:
+        // these files come back out of our own origin.
+        var safeContentType = UploadPolicy.ResolveContentType(fileName)
+            ?? throw new DomainException($"That file type is not accepted. Use {UploadPolicy.Describe}.");
+
         var key = await fileStore.SaveAsync(content, fileName, "documents", cancellationToken);
 
         try
         {
-            var document = new Document(vehicle.Id, request.Type, request.Title, fileName, contentType, key, sizeBytes);
+            var document = new Document(vehicle.Id, request.Type, request.Title, fileName, safeContentType, key, sizeBytes);
             document.SetExpiry(request.ExpiresOn);
 
             vehicle.AddDocument(document);

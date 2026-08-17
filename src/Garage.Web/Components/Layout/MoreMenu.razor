@@ -1,0 +1,65 @@
+@implements IDisposable
+
+@* The bottom bar is fixed at the five tabs story F-2 names, so the screens outside it —
+   the garage list, fuel, documents, notification settings — need a way in on a phone.
+   On desktop the top nav already covers them and this stays hidden. *@
+
+<button type="button" class="btn btn-ghost btn-sm more-toggle" @onclick="Toggle" aria-label="More">▪▪▪</button>
+
+@if (_open)
+{
+    <div class="dialog-backdrop" @onclick="Close">
+        <div class="dialog" @onclick:stopPropagation="true">
+            <div class="dialog-title">More</div>
+            <div class="stack-tight">
+                @foreach (var item in Items)
+                {
+                    <a class="btn @(IsCurrent(item.Href) ? "btn-primary" : "btn-secondary")"
+                       href="@item.Href" @onclick="Close">@item.Label</a>
+                }
+            </div>
+            <div class="dialog-actions">
+                <button type="button" class="btn btn-ghost" @onclick="Close">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private record MenuItem(string Label, string Href);
+
+    private static readonly MenuItem[] Items =
+    [
+        new("Garage", "/vehicles"),
+        new("Fuel", "/fuel"),
+        new("Documents", "/documents"),
+        new("Reminders", "/service/reminders"),
+        new("Notification settings", "/settings/notifications"),
+        new("Household & sharing", "/settings/household")
+    ];
+
+    private bool _open;
+
+    protected override void OnInitialized() => Navigation.LocationChanged += OnLocationChanged;
+
+    // Navigating away must not leave the sheet hanging over the new screen.
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (_open)
+        {
+            _open = false;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private bool IsCurrent(string href) =>
+        Navigation.ToBaseRelativePath(Navigation.Uri).StartsWith(href.TrimStart('/'), StringComparison.OrdinalIgnoreCase);
+
+    private void Toggle() => _open = !_open;
+
+    private void Close() => _open = false;
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

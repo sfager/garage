@@ -105,6 +105,20 @@ public class Vehicle : Entity
 
     public void SetPhoto(string? photoPath) => PhotoPath = Normalize(photoPath);
 
+    /// <summary>
+    /// Moves the car to another household, which happens when its owner joins someone
+    /// else's garage — their cars come with them rather than being left unreachable.
+    /// </summary>
+    public void MoveToHousehold(Guid householdId)
+    {
+        if (householdId == Guid.Empty)
+        {
+            throw new DomainException("A vehicle must belong to a household.");
+        }
+
+        HouseholdId = householdId;
+    }
+
     public void Archive() => IsArchived = true;
 
     public void Restore() => IsArchived = false;

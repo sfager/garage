@@ -205,8 +205,12 @@ public class MaintenanceService(
         return await serviceRecords.ListShopsAsync(householdId, cancellationToken);
     }
 
-    /// <summary>The vehicle's rate, which every projection depends on (story S-3).</summary>
-    public async Task<double?> GetMilesPerDayAsync(Guid vehicleId, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// The vehicle's rate, which every projection depends on (story S-3). Private
+    /// deliberately: it does not scope to the household, and both callers have already
+    /// done so.
+    /// </summary>
+    private async Task<double?> GetMilesPerDayAsync(Guid vehicleId, CancellationToken cancellationToken = default)
     {
         var points = await mileage.ListPointsAsync(vehicleId, cancellationToken);
         var summary = MileageCalculator.Summarize(

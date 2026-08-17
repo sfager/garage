@@ -38,7 +38,7 @@ else
             <div class="ph" style="height:120px"><span class="mono">no photo yet</span></div>
         }
 
-        <InputFile OnChange="UploadPhotoAsync" accept="image/*" class="input" />
+        <InputFile OnChange="UploadPhotoAsync" accept=".jpg,.jpeg,.png,.gif,.webp,.heic" class="input" />
         @if (_photoError is not null)
         {
             <div class="alert alert-error">@_photoError</div>

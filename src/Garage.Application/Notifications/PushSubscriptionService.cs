@@ -45,7 +45,11 @@ public class PushSubscriptionService(
     public async Task UnsubscribeAsync(string endpoint, CancellationToken cancellationToken = default)
     {
         var existing = await subscriptions.GetByEndpointAsync(endpoint, cancellationToken);
-        if (existing is null)
+
+        // An endpoint is only a string; without this check anyone holding one could
+        // silence another household's notifications.
+        var householdId = await currentUser.GetHouseholdIdAsync(cancellationToken);
+        if (existing is null || existing.HouseholdId != householdId)
         {
             return;
         }

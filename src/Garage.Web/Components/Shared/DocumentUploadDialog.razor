@@ -42,7 +42,7 @@
                     <label for="doc-file">File or photo</label>
                     @* capture lets a phone open the camera straight from here. *@
                     <InputFile id="doc-file" class="input" OnChange="OnFileChanged"
-                               accept="image/*,application/pdf" capture="environment" />
+                               accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.pdf" capture="environment" />
                     @if (_file is not null)
                     {
                         <div class="mono">@_file.Name · @(_file.Size / 1024) KB</div>

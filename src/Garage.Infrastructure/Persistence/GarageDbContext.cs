@@ -15,6 +15,7 @@ public class GarageDbContext(DbContextOptions<GarageDbContext> options)
     : IdentityDbContext<ApplicationUser>(options), IUnitOfWork
 {
     public DbSet<Household> Households => Set<Household>();
+    public DbSet<HouseholdInvitation> HouseholdInvitations => Set<HouseholdInvitation>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
     public DbSet<OdometerReading> OdometerReadings => Set<OdometerReading>();
     public DbSet<Trip> Trips => Set<Trip>();
@@ -25,7 +26,6 @@ public class GarageDbContext(DbContextOptions<GarageDbContext> options)
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
     public DbSet<SentNotification> SentNotifications => Set<SentNotification>();
-
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
