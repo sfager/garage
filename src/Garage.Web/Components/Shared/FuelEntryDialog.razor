@@ -78,7 +78,7 @@
 </div>
 
 @code {
-    [Inject] private FuelApiClient FuelService { get; set; } = default!;
+    [Inject] private FuelApiClient FuelApi { get; set; } = default!;
     [Inject] private IClock Clock { get; set; } = default!;
 
     [Parameter, EditorRequired] public Guid VehicleId { get; set; }
@@ -106,7 +106,7 @@
 
         if (EntryId is { } id)
         {
-            var screen = await FuelService.GetScreenAsync(VehicleId, FuelRange.All);
+            var screen = await FuelApi.GetScreenAsync(VehicleId, FuelRange.All);
             var fill = screen.Efficiency.Fills.FirstOrDefault(f => f.Id == id);
 
             if (fill is not null)
@@ -121,7 +121,7 @@
             }
         }
 
-        _stations = await FuelService.ListStationsAsync();
+        _stations = await FuelApi.ListStationsAsync();
     }
 
     private async Task SaveAsync()
@@ -132,7 +132,7 @@
         try
         {
             _request.Date = DateOnly.FromDateTime(_date);
-            await FuelService.SaveAsync(VehicleId, _request);
+            await FuelApi.SaveAsync(VehicleId, _request);
             await OnSaved.InvokeAsync();
         }
         catch (DomainException ex)
@@ -156,7 +156,7 @@
 
         try
         {
-            await FuelService.DeleteAsync(id);
+            await FuelApi.DeleteAsync(id);
             await OnSaved.InvokeAsync();
         }
         catch (DomainException ex)

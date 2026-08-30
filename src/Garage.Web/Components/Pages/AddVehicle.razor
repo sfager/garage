@@ -160,7 +160,7 @@ else
 }
 
 @code {
-    [Inject] private VehicleApiClient Vehicles { get; set; } = default!;
+    [Inject] private VehicleApiClient VehicleApi { get; set; } = default!;
     [Inject] private IVehicleLookupService Lookup { get; set; } = default!;
     [Inject] private VehicleContext Context { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
@@ -277,7 +277,7 @@ else
 
         try
         {
-            var vehicle = await Vehicles.AddAsync(_request);
+            var vehicle = await VehicleApi.AddAsync(_request);
 
             // Story V-2: the new vehicle becomes the selected one.
             await Context.ReloadAsync();

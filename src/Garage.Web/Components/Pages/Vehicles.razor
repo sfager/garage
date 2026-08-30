@@ -47,7 +47,7 @@ else
 @code {
     // Named "Garage" rather than "Vehicles": a member may not share its enclosing
     // component's name, and this page compiles to a class called Vehicles.
-    [Inject] private VehicleApiClient Garage { get; set; } = default!;
+    [Inject] private VehicleApiClient VehicleApi { get; set; } = default!;
 
     private IReadOnlyList<VehicleSummary> _vehicles = [];
     private bool _loading = true;
@@ -57,7 +57,7 @@ else
     private async Task ReloadAsync()
     {
         _loading = true;
-        _vehicles = await Garage.ListAllAsync();
+        _vehicles = await VehicleApi.ListAllAsync();
         _loading = false;
     }
 }

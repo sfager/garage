@@ -85,7 +85,7 @@
 </div>
 
 @code {
-    [Inject] private MileageApiClient Mileage { get; set; } = default!;
+    [Inject] private MileageApiClient MileageApi { get; set; } = default!;
     [Inject] private IClock Clock { get; set; } = default!;
 
     [Parameter, EditorRequired] public Guid VehicleId { get; set; }
@@ -122,7 +122,7 @@
         try
         {
             _request.Date = DateOnly.FromDateTime(_date);
-            await Mileage.RecordTripAsync(VehicleId, _request);
+            await MileageApi.RecordTripAsync(VehicleId, _request);
             await OnSaved.InvokeAsync();
         }
         catch (DomainException ex)

@@ -260,7 +260,7 @@ else
 @code {
     // Named "Analytics" rather than "Reports": a member may not share its
     // enclosing component's name, and this page compiles to a class called Reports.
-    [Inject] private ReportApiClient Analytics { get; set; } = default!;
+    [Inject] private ReportApiClient ReportApi { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
@@ -287,11 +287,11 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        _vehicles = await Analytics.ListVehiclesAsync();
+        _vehicles = await ReportApi.ListVehiclesAsync();
         await ReloadAsync();
     }
 
-    private async Task ReloadAsync() => _screen = await Analytics.GetScreenAsync(_filter);
+    private async Task ReloadAsync() => _screen = await ReportApi.GetScreenAsync(_filter);
 
     private string VehicleLabel => _filter.VehicleId is { } id
         ? _vehicles.FirstOrDefault(v => v.Id == id)?.Nickname ?? "Vehicle"
@@ -364,7 +364,7 @@ else
     /// <summary>Story R-4: the export honours the current filters and states its row count.</summary>
     private async Task ExportAsync()
     {
-        var export = await Analytics.ExportAsync(_filter);
+        var export = await ReportApi.ExportAsync(_filter);
         await JS.InvokeVoidAsync("garage.downloadCsv", export.FileName, export.Content);
         _exportMessage = $"Exported {export.RowCount} row{(export.RowCount == 1 ? "" : "s")} to {export.FileName}.";
     }

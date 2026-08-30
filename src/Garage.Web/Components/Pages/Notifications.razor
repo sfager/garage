@@ -68,7 +68,7 @@ else
 }
 
 @code {
-    [Inject] private NotificationApiClient Push { get; set; } = default!;
+    [Inject] private NotificationApiClient NotificationApi { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
     private bool _configured;
@@ -110,7 +110,7 @@ else
 
     private async Task RefreshAsync()
     {
-        var status = await Push.GetStatusAsync();
+        var status = await NotificationApi.GetStatusAsync();
         _configured = status.IsConfigured;
         _publicKey = status.PublicKey;
         _deviceCount = status.DeviceCount;
@@ -141,7 +141,7 @@ else
             switch (result.Status)
             {
                 case "subscribed":
-                    await Push.SubscribeAsync(new PushSubscriptionRequest(result.Endpoint!, result.P256dh!, result.Auth!));
+                    await NotificationApi.SubscribeAsync(new PushSubscriptionRequest(result.Endpoint!, result.P256dh!, result.Auth!));
                     _message = "Notifications are on for this browser.";
                     break;
 
@@ -183,7 +183,7 @@ else
 
             if (endpoint is not null)
             {
-                await Push.UnsubscribeAsync(endpoint);
+                await NotificationApi.UnsubscribeAsync(endpoint);
             }
 
             _message = "Notifications are off for this browser.";

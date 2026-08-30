@@ -78,7 +78,7 @@ else
     [Inject] private VehicleContext Context { get; set; } = default!;
     // Named "Log" rather than "Mileage": a member may not share its enclosing
     // component's name, and this page compiles to a class called Mileage.
-    [Inject] private MileageApiClient Log { get; set; } = default!;
+    [Inject] private MileageApiClient MileageApi { get; set; } = default!;
 
     private VehicleSummary? _vehicle;
     private MileageSummary? _summary;
@@ -112,8 +112,8 @@ else
             return;
         }
 
-        _summary = await Log.GetSummaryAsync(_vehicle.Id);
-        _log = await Log.GetLogAsync(_vehicle.Id, _filter);
+        _summary = await MileageApi.GetSummaryAsync(_vehicle.Id);
+        _log = await MileageApi.GetLogAsync(_vehicle.Id, _filter);
     }
 
     private async Task SetFilterAsync(MileageEntryKind? filter)

@@ -59,7 +59,7 @@
 </div>
 
 @code {
-    [Inject] private MileageApiClient Mileage { get; set; } = default!;
+    [Inject] private MileageApiClient MileageApi { get; set; } = default!;
     [Inject] private IClock Clock { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
@@ -93,7 +93,7 @@
         try
         {
             _request.Date = Clock.Today;
-            await Mileage.RecordReadingAsync(VehicleId, _request);
+            await MileageApi.RecordReadingAsync(VehicleId, _request);
 
             _request = new RecordReadingRequest { Date = Clock.Today };
             _saved = true;

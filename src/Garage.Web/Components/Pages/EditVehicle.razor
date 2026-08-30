@@ -119,7 +119,7 @@ else
     /// <summary>Photos are phone camera shots; anything larger is almost certainly a mistake.</summary>
     private const long MaxPhotoBytes = 8 * 1024 * 1024;
 
-    [Inject] private VehicleApiClient Vehicles { get; set; } = default!;
+    [Inject] private VehicleApiClient VehicleApi { get; set; } = default!;
     [Inject] private VehicleContext Context { get; set; } = default!;
 
     [Parameter] public Guid VehicleId { get; set; }
@@ -138,7 +138,7 @@ else
     private async Task LoadAsync()
     {
         _loading = true;
-        var vehicle = await Vehicles.GetAsync(VehicleId);
+        var vehicle = await VehicleApi.GetAsync(VehicleId);
 
         if (vehicle is null)
         {
@@ -172,7 +172,7 @@ else
 
         try
         {
-            await Vehicles.UpdateAsync(_request);
+            await VehicleApi.UpdateAsync(_request);
             await Context.ReloadAsync();
             _saved = true;
         }
@@ -204,7 +204,7 @@ else
         }
 
         await using var stream = file.OpenReadStream(MaxPhotoBytes);
-        await Vehicles.SetPhotoAsync(VehicleId, stream, file.Name);
+        await VehicleApi.SetPhotoAsync(VehicleId, stream, file.Name);
 
         await Context.ReloadAsync();
         await LoadAsync();
@@ -212,7 +212,7 @@ else
 
     private async Task RemovePhotoAsync()
     {
-        await Vehicles.RemovePhotoAsync(VehicleId);
+        await VehicleApi.RemovePhotoAsync(VehicleId);
         await Context.ReloadAsync();
         await LoadAsync();
     }

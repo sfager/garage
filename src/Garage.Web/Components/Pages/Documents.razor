@@ -117,7 +117,7 @@ else
 
 @code {
     [Inject] private VehicleContext Context { get; set; } = default!;
-    [Inject] private DocumentApiClient Docs { get; set; } = default!;
+    [Inject] private DocumentApiClient DocumentApi { get; set; } = default!;
     [Inject] private IClock Clock { get; set; } = default!;
 
     private VehicleSummary? _vehicle;
@@ -151,8 +151,8 @@ else
             return;
         }
 
-        _files = await Docs.ListFilesAsync(_vehicle.Id);
-        _receiptGroups = await Docs.ListReceiptGroupsAsync(_vehicle.Id);
+        _files = await DocumentApi.ListFilesAsync(_vehicle.Id);
+        _receiptGroups = await DocumentApi.ListReceiptGroupsAsync(_vehicle.Id);
     }
 
     private async Task OnUploadedAsync()
@@ -176,7 +176,7 @@ else
 
         try
         {
-            var due = await Docs.CreateExpiryReminderAsync(card.Id);
+            var due = await DocumentApi.CreateExpiryReminderAsync(card.Id);
             _message = due is { } dueDate
                 ? $"Reminder set for {dueDate:MMM d, yyyy}."
                 : "Reminder set.";

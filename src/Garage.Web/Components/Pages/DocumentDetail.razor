@@ -102,7 +102,7 @@ else
 }
 
 @code {
-    [Inject] private DocumentApiClient Docs { get; set; } = default!;
+    [Inject] private DocumentApiClient DocumentApi { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
@@ -121,7 +121,7 @@ else
     protected override async Task OnParametersSetAsync()
     {
         _loading = true;
-        _card = await Docs.GetAsync(DocumentId);
+        _card = await DocumentApi.GetAsync(DocumentId);
 
         if (_card is not null)
         {
@@ -142,9 +142,9 @@ else
         {
             DateOnly? expiry = _expiry is { } date ? DateOnly.FromDateTime(date) : null;
             _edit.ExpiresOn = expiry;
-            await Docs.UpdateAsync(DocumentId, _edit);
+            await DocumentApi.UpdateAsync(DocumentId, _edit);
 
-            _card = await Docs.GetAsync(DocumentId);
+            _card = await DocumentApi.GetAsync(DocumentId);
             _message = "Saved.";
         }
         catch (DomainException ex)
@@ -196,7 +196,7 @@ else
 
         try
         {
-            await Docs.DeleteAsync(DocumentId);
+            await DocumentApi.DeleteAsync(DocumentId);
             Navigation.NavigateTo("/documents");
         }
         catch (DomainException ex)

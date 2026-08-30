@@ -67,7 +67,7 @@
 }
 
 @code {
-    [Inject] private VehicleApiClient Vehicles { get; set; } = default!;
+    [Inject] private VehicleApiClient VehicleApi { get; set; } = default!;
     [Inject] private VehicleContext Context { get; set; } = default!;
 
     [Parameter, EditorRequired] public VehicleSummary Vehicle { get; set; } = default!;
@@ -79,17 +79,17 @@
     private string? _error;
     private bool _busy;
 
-    private async Task ArchiveAsync() => await RunAsync(() => Vehicles.ArchiveAsync(Vehicle.Id));
+    private async Task ArchiveAsync() => await RunAsync(() => VehicleApi.ArchiveAsync(Vehicle.Id));
 
-    private async Task RestoreAsync() => await RunAsync(() => Vehicles.RestoreAsync(Vehicle.Id));
+    private async Task RestoreAsync() => await RunAsync(() => VehicleApi.RestoreAsync(Vehicle.Id));
 
-    private async Task OpenDeleteAsync() => _impact = await Vehicles.GetDeletionImpactAsync(Vehicle.Id);
+    private async Task OpenDeleteAsync() => _impact = await VehicleApi.GetDeletionImpactAsync(Vehicle.Id);
 
     private void CloseDelete() => _impact = null;
 
     private async Task DeleteAsync()
     {
-        await RunAsync(() => Vehicles.DeleteAsync(Vehicle.Id));
+        await RunAsync(() => VehicleApi.DeleteAsync(Vehicle.Id));
         _impact = null;
     }
 

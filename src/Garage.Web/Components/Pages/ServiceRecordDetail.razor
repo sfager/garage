@@ -88,7 +88,7 @@ else
 }
 
 @code {
-    [Inject] private MaintenanceApiClient Maintenance { get; set; } = default!;
+    [Inject] private MaintenanceApiClient MaintenanceApi { get; set; } = default!;
 
     [Parameter] public Guid RecordId { get; set; }
 
@@ -98,7 +98,7 @@ else
     protected override async Task OnParametersSetAsync()
     {
         _loading = true;
-        _record = await Maintenance.GetServiceRecordAsync(RecordId);
+        _record = await MaintenanceApi.GetServiceRecordAsync(RecordId);
         _loading = false;
     }
 
