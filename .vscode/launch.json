@@ -9,38 +9,30 @@
             "type": "dotnet",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/src/Garage.Web/bin/Debug/net10.0/Garage.Web.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}/src/Garage.Web",
-            "stopAtEntry": false,
+            "projectPath": "${workspaceFolder}/src/Garage.Web/Garage.Web.csproj",
             "serverReadyAction": {
                 "action": "openExternally",
                 "pattern": "Now listening on:\\s+(https?://\\S+)"
-            },
+            }
+        },
+        {
+            "name": ".NET Launch (web, coreclr fallback)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/Garage.Web/bin/Debug/net10.0/Garage.Web.dll",
+            "cwd": "${workspaceFolder}/src/Garage.Web",
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development"
             },
-            "sourceFileMap": {
-                "/Views": "${workspaceFolder}/src/Garage.Web/Components"
-            },
-            "launchBrowser": {
-                "enabled": true,
-                "args": "${auto-detect-url}",
-                "windows": {
-                    "command": "cmd.exe",
-                    "args": "/C start ${auto-detect-url}"
-                },
-                "osx": {
-                    "command": "open"
-                },
-                "linux": {
-                    "command": "xdg-open"
-                }
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "Now listening on:\\s+(https?://\\S+)"
             }
         },
         {
             "name": ".NET Attach",
-            "type": "dotnet",
+            "type": "coreclr",
             "request": "attach",
             "processId": "${command:pickProcess}"
         }

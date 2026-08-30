@@ -1,6 +1,7 @@
 @page "/fuel"
 @attribute [Authorize]
 @using Garage.Application.Fuel
+@using Garage.Web.Services.Api
 @implements IDisposable
 
 <PageTitle>Fuel · Garage</PageTitle>
@@ -191,7 +192,7 @@ else
 
 @code {
     [Inject] private VehicleContext Context { get; set; } = default!;
-    [Inject] private FuelService FuelService { get; set; } = default!;
+    [Inject] private FuelApiClient FuelApi { get; set; } = default!;
 
     private VehicleSummary? _vehicle;
     private FuelScreen? _screen;
@@ -216,7 +217,7 @@ else
     private async Task ReloadAsync()
     {
         _vehicle = Context.Selected;
-        _screen = _vehicle is null ? null : await FuelService.GetScreenAsync(_vehicle.Id, _range, _metric);
+        _screen = _vehicle is null ? null : await FuelApi.GetScreenAsync(_vehicle.Id, _range, _metric);
     }
 
     private async Task SetMetricAsync(FuelMetric metric)

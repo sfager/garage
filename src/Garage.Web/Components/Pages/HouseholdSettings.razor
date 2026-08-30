@@ -1,6 +1,7 @@
 @page "/settings/household"
 @attribute [Authorize]
 @using Garage.Application.Households
+@using Garage.Web.Services.Api
 
 <PageTitle>Household · Garage</PageTitle>
 
@@ -120,7 +121,7 @@ else
 }
 
 @code {
-    [Inject] private HouseholdService Households { get; set; } = default!;
+    [Inject] private HouseholdApiClient HouseholdApi { get; set; } = default!;
     [Inject] private ICurrentUser CurrentUser { get; set; } = default!;
     [Inject] private VehicleContext Context { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
@@ -147,7 +148,7 @@ else
     {
         try
         {
-            _overview = await Households.GetOverviewAsync();
+            _overview = await HouseholdApi.GetOverviewAsync();
         }
         catch (DomainException ex)
         {
@@ -162,7 +163,7 @@ else
 
         try
         {
-            _created = await Households.InviteAsync();
+            _created = await HouseholdApi.InviteAsync();
             await ReloadAsync();
         }
         catch (DomainException ex)
@@ -181,7 +182,7 @@ else
 
         try
         {
-            await Households.RevokeAsync(invitationId);
+            await HouseholdApi.RevokeAsync(invitationId);
             await ReloadAsync();
         }
         catch (DomainException ex)
@@ -196,7 +197,7 @@ else
 
         try
         {
-            await Households.LeaveAsync();
+            await HouseholdApi.LeaveAsync();
 
             // The whole app is scoped to the household, so everything must be re-read.
             await Context.ReloadAsync();

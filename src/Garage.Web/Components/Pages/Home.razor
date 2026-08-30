@@ -5,6 +5,8 @@
 @using Garage.Application.Maintenance
 @using Garage.Application.Mileage
 @using Garage.Application.ServiceLogging
+@using Garage.Web.Api.Contracts
+@using Garage.Web.Services.Api
 @using Garage.Domain.Services
 @implements IDisposable
 
@@ -154,15 +156,15 @@ else
 @code {
     [Inject] private VehicleContext Context { get; set; } = default!;
     [Inject] private IFileStore FileStore { get; set; } = default!;
-    [Inject] private MileageService Mileage { get; set; } = default!;
+    [Inject] private MileageApiClient MileageApi { get; set; } = default!;
     [Inject] private MaintenanceService Maintenance { get; set; } = default!;
     [Inject] private ServiceLogWizard Wizard { get; set; } = default!;
-    [Inject] private FuelService FuelService { get; set; } = default!;
-    [Inject] private DocumentService Docs { get; set; } = default!;
+    [Inject] private FuelApiClient FuelApi { get; set; } = default!;
+    [Inject] private DocumentApiClient DocumentApi { get; set; } = default!;
 
     private bool _resumable;
     private FuelStats? _stats;
-    private IReadOnlyList<ExpiringDocument> _expiring = [];
+    private IReadOnlyList<ExpiringDocumentResponse> _expiring = [];
     private MileageSummary? _summary;
     private IReadOnlyList<ReminderCard> _overdue = [];
     private IReadOnlyList<ReminderCard> _comingUp = [];
@@ -196,7 +198,7 @@ else
             return;
         }
 
-        _summary = await Mileage.GetSummaryAsync(vehicle.Id);
+        _summary = await MileageApi.GetSummaryAsync(vehicle.Id);
 
         await Wizard.EnsureLoadedAsync(vehicle.Id);
         _resumable = Wizard.HasResumableDraft;
@@ -207,8 +209,8 @@ else
         // The home screen is a glance, not the full list — three is what fits [1a].
         _comingUp = [.. cards.Where(c => c.Band == DueBand.DueSoon).Take(3)];
 
-        _stats = (await FuelService.GetScreenAsync(vehicle.Id, FuelRange.TwelveMonths)).Stats;
-        _expiring = await Docs.ListExpiringAsync();
+        _stats = (await FuelApi.GetScreenAsync(vehicle.Id, FuelRange.TwelveMonths)).Stats;
+        _expiring = await DocumentApi.ListExpiringAsync();
     }
 
     private void OpenSnooze(ReminderCard card) => _snoozing = card;

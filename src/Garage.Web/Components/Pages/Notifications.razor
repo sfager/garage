@@ -1,6 +1,7 @@
 @page "/settings/notifications"
 @attribute [Authorize]
 @using Garage.Application.Notifications
+@using Garage.Web.Services.Api
 
 <PageTitle>Notifications · Garage</PageTitle>
 
@@ -67,10 +68,11 @@ else
 }
 
 @code {
-    [Inject] private PushSubscriptionService Push { get; set; } = default!;
+    [Inject] private NotificationApiClient NotificationApi { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
     private bool _configured;
+    private string _publicKey = string.Empty;
     private bool _supported = true;
     private string _permission = "default";
     private bool _subscribedHere;
@@ -95,11 +97,9 @@ else
         _ => "Turn them on to be told without opening the app."
     };
 
-    protected override void OnInitialized() => _configured = Push.IsConfigured;
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || !_configured)
+        if (!firstRender)
         {
             return;
         }
@@ -110,13 +110,22 @@ else
 
     private async Task RefreshAsync()
     {
+        var status = await NotificationApi.GetStatusAsync();
+        _configured = status.IsConfigured;
+        _publicKey = status.PublicKey;
+        _deviceCount = status.DeviceCount;
+
+        if (!_configured)
+        {
+            _subscribedHere = false;
+            return;
+        }
+
         _supported = await JS.InvokeAsync<bool>("garagePush.isSupported");
         _permission = await JS.InvokeAsync<string>("garagePush.permission");
 
         var endpoint = _supported ? await JS.InvokeAsync<string?>("garagePush.currentEndpoint") : null;
         _subscribedHere = endpoint is not null;
-
-        _deviceCount = await Push.CountAsync();
     }
 
     private async Task SubscribeAsync()
@@ -127,12 +136,12 @@ else
 
         try
         {
-            var result = await JS.InvokeAsync<SubscribeResult>("garagePush.subscribe", Push.PublicKey);
+            var result = await JS.InvokeAsync<SubscribeResult>("garagePush.subscribe", _publicKey);
 
             switch (result.Status)
             {
                 case "subscribed":
-                    await Push.SubscribeAsync(new PushSubscriptionRequest(result.Endpoint!, result.P256dh!, result.Auth!));
+                    await NotificationApi.SubscribeAsync(new PushSubscriptionRequest(result.Endpoint!, result.P256dh!, result.Auth!));
                     _message = "Notifications are on for this browser.";
                     break;
 
@@ -174,7 +183,7 @@ else
 
             if (endpoint is not null)
             {
-                await Push.UnsubscribeAsync(endpoint);
+                await NotificationApi.UnsubscribeAsync(endpoint);
             }
 
             _message = "Notifications are off for this browser.";

@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using Garage.Application.Maintenance
 @using Garage.Application.ServiceLogging
+@using Garage.Web.Services.Api
 
 <PageTitle>Log a service · Garage</PageTitle>
 
@@ -84,7 +85,7 @@ else
 @code {
     [Inject] private VehicleContext Context { get; set; } = default!;
     [Inject] private ServiceLogWizard Wizard { get; set; } = default!;
-    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
+    [Inject] private MaintenanceApiClient MaintenanceApi { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 
     /// <summary>Set by the "Log it" action on a due card (story S-4).</summary>
@@ -108,7 +109,7 @@ else
 
         await Wizard.EnsureLoadedAsync(_vehicle.Id);
 
-        var cards = await Maintenance.ListUpcomingAsync(_vehicle.Id);
+        var cards = await MaintenanceApi.ListUpcomingAsync(_vehicle.Id);
         _dueNow = [.. cards.Where(c => c.Band is DueBand.Overdue or DueBand.DueSoon)];
 
         // Story S-4: arriving from a due card starts the visit with that item on it.

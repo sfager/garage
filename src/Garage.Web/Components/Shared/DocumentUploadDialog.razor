@@ -1,4 +1,5 @@
 @using Garage.Application.Documents
+@using Garage.Web.Services.Api
 
 @* Story D-1: upload or photograph a file, giving it a type and an optional expiry. *@
 
@@ -72,7 +73,7 @@
         DocumentType.Other
     ];
 
-    [Inject] private DocumentService Docs { get; set; } = default!;
+    [Inject] private DocumentApiClient DocumentApi { get; set; } = default!;
 
     [Parameter, EditorRequired] public Guid VehicleId { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
@@ -132,7 +133,7 @@
             _request.ExpiresOn = _expiry is { } date ? DateOnly.FromDateTime(date) : null;
 
             await using var stream = _file.OpenReadStream(MaxBytes);
-            await Docs.UploadAsync(VehicleId, _request, stream, _file.Name, _file.ContentType, _file.Size);
+            await DocumentApi.UploadAsync(VehicleId, _request, stream, _file.Name, _file.ContentType);
 
             await OnUploaded.InvokeAsync();
         }

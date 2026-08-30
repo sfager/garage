@@ -9,7 +9,9 @@ using Garage.Infrastructure.Persistence;
 using Garage.Infrastructure.Storage;
 using Garage.Web.Components;
 using Garage.Web.Components.Account;
+using Garage.Web.Services.Api;
 using Garage.Web.Services;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.StaticFiles;
@@ -32,6 +34,8 @@ builder.Services.AddAuthentication(options =>
     .AddIdentityCookies();
 
 builder.Services.AddAuthorization();
+builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
@@ -80,6 +84,55 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 builder.Services.AddSingleton<IContentTypeProvider, FileExtensionContentTypeProvider>();
+builder.Services.AddTransient<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<VehicleApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<MaintenanceApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<DocumentApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<ReportApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<HouseholdApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<NotificationApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<MileageApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<FuelApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
 
 var app = builder.Build();
 
@@ -104,6 +157,8 @@ Directory.CreateDirectory(fileStoreOptions.Root);
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+app.MapControllers();
 
 app.MapAdditionalIdentityEndpoints();
 

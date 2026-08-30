@@ -2,6 +2,7 @@
 @page "/join/{Code}"
 @attribute [Authorize]
 @using Garage.Application.Households
+@using Garage.Web.Services.Api
 
 <PageTitle>Join a garage · Garage</PageTitle>
 
@@ -84,7 +85,7 @@ else
 }
 
 @code {
-    [Inject] private HouseholdService Households { get; set; } = default!;
+    [Inject] private HouseholdApiClient HouseholdApi { get; set; } = default!;
     [Inject] private VehicleContext Context { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 
@@ -129,7 +130,7 @@ else
 
         try
         {
-            _preview = await Households.PreviewAsync(_code);
+            _preview = await HouseholdApi.PreviewAsync(_code);
         }
         catch (DomainException ex)
         {
@@ -148,7 +149,7 @@ else
 
         try
         {
-            await Households.AcceptAsync(_code);
+            await HouseholdApi.AcceptAsync(_code);
             _joined = true;
 
             // Everything on screen is scoped to the old household; force a clean reload.
@@ -157,7 +158,7 @@ else
         catch (DomainException ex)
         {
             _error = ex.Message;
-            _preview = await Households.PreviewAsync(_code);
+            _preview = await HouseholdApi.PreviewAsync(_code);
         }
         finally
         {

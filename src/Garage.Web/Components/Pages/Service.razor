@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using Garage.Application.Maintenance
 @using Garage.Domain.Services
+@using Garage.Web.Services.Api
 @implements IDisposable
 
 <PageTitle>Maintenance · Garage</PageTitle>
@@ -115,7 +116,7 @@ else
 
 @code {
     [Inject] private VehicleContext Context { get; set; } = default!;
-    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
+    [Inject] private MaintenanceApiClient MaintenanceApi { get; set; } = default!;
 
     private enum Tab { Upcoming, History }
 
@@ -157,11 +158,11 @@ else
 
         if (_tab == Tab.Upcoming)
         {
-            _cards = await Maintenance.ListUpcomingAsync(_vehicle.Id);
+            _cards = await MaintenanceApi.ListUpcomingAsync(_vehicle.Id);
         }
         else
         {
-            _history = await Maintenance.ListHistoryAsync(_vehicle.Id);
+            _history = await MaintenanceApi.ListHistoryAsync(_vehicle.Id);
         }
 
         _loading = false;
@@ -194,7 +195,7 @@ else
 
         try
         {
-            await Maintenance.DismissAsync(card.Id);
+            await MaintenanceApi.DismissAsync(card.Id);
             await ReloadAsync();
         }
         catch (DomainException ex)

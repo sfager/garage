@@ -1,6 +1,7 @@
 @page "/service/reminders"
 @attribute [Authorize]
 @using Garage.Application.Maintenance
+@using Garage.Web.Services.Api
 @implements IDisposable
 
 <PageTitle>Reminders · Garage</PageTitle>
@@ -132,7 +133,7 @@ else
 
 @code {
     [Inject] private VehicleContext Context { get; set; } = default!;
-    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
+    [Inject] private MaintenanceApiClient MaintenanceApi { get; set; } = default!;
 
     private VehicleSummary? _vehicle;
     private ReminderRequest _request = new();
@@ -157,7 +158,7 @@ else
     private async Task ReloadAsync()
     {
         _vehicle = Context.Selected;
-        _cards = _vehicle is null ? [] : await Maintenance.ListAllAsync(_vehicle.Id);
+        _cards = _vehicle is null ? [] : await MaintenanceApi.ListAllAsync(_vehicle.Id);
         await PreviewAsync();
     }
 
@@ -170,7 +171,7 @@ else
             return;
         }
 
-        _preview = await Maintenance.PreviewAsync(_vehicle.Id, _request);
+        _preview = await MaintenanceApi.PreviewAsync(_vehicle.Id, _request);
     }
 
     private async Task SaveAsync()
@@ -185,7 +186,7 @@ else
 
         try
         {
-            await Maintenance.SaveAsync(_vehicle.Id, _request);
+            await MaintenanceApi.SaveAsync(_vehicle.Id, _request);
             StartNew();
             await ReloadAsync();
         }
@@ -213,14 +214,32 @@ else
 
     private async Task ToggleNotificationsAsync(ReminderCard card)
     {
-        await Maintenance.SetNotificationsAsync(card.Id, !card.NotificationsEnabled);
-        await ReloadAsync();
+        _error = null;
+
+        try
+        {
+            await MaintenanceApi.SetNotificationsAsync(card.Id, !card.NotificationsEnabled);
+            await ReloadAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
     }
 
     private async Task ReinstateAsync(ReminderCard card)
     {
-        await Maintenance.ReinstateAsync(card.Id);
-        await ReloadAsync();
+        _error = null;
+
+        try
+        {
+            await MaintenanceApi.ReinstateAsync(card.Id);
+            await ReloadAsync();
+        }
+        catch (DomainException ex)
+        {
+            _error = ex.Message;
+        }
     }
 
     public void Dispose() => Context.Changed -= OnContextChanged;
