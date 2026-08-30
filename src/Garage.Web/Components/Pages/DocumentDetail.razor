@@ -1,6 +1,8 @@
 @page "/documents/{DocumentId:guid}"
 @attribute [Authorize]
 @using Garage.Application.Documents
+@using Garage.Web.Api.Contracts
+@using Garage.Web.Services.Api
 
 <PageTitle>Document · Garage</PageTitle>
 
@@ -44,13 +46,13 @@ else
 
     @if (_card.IsImage)
     {
-        <img src="@Docs.GetUrl(_card.StoragePath)" alt="@_card.Title"
+        <img src="@_card.Url" alt="@_card.Title"
              style="width:100%;border:1px solid var(--color-divider)" />
     }
     else
     {
         @* A PDF renders inline where the browser supports it, and downloads where it does not. *@
-        <object data="@Docs.GetUrl(_card.StoragePath)" type="@_card.ContentType"
+        <object data="@_card.Url" type="@_card.ContentType"
                 style="width:100%;height:70vh;border:1px solid var(--color-divider)">
             <div class="ph" style="height:200px">
                 <span class="mono">@_card.FileName — open it below</span>
@@ -59,8 +61,8 @@ else
     }
 
     <div class="row" style="flex-wrap:wrap">
-        <a class="btn btn-primary" href="@Docs.GetUrl(_card.StoragePath)" target="_blank" rel="noopener">Open</a>
-        <a class="btn btn-secondary" href="@Docs.GetUrl(_card.StoragePath)" download="@_card.FileName">Download</a>
+        <a class="btn btn-primary" href="@_card.Url" target="_blank" rel="noopener">Open</a>
+        <a class="btn btn-secondary" href="@_card.Url" download="@_card.FileName">Download</a>
         <button type="button" class="btn btn-secondary" @onclick="ShareAsync">Share</button>
         <button type="button" class="btn btn-danger" @onclick="() => _confirmingDelete = true">Delete</button>
     </div>
@@ -100,13 +102,13 @@ else
 }
 
 @code {
-    [Inject] private DocumentService Docs { get; set; } = default!;
+    [Inject] private DocumentApiClient Docs { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
     [Parameter] public Guid DocumentId { get; set; }
 
-    private DocumentCard? _card;
+    private DocumentCardResponse? _card;
     private DocumentUploadRequest _edit = new();
     private DateTime? _expiry;
     private string? _error;
@@ -139,7 +141,8 @@ else
         try
         {
             DateOnly? expiry = _expiry is { } date ? DateOnly.FromDateTime(date) : null;
-            await Docs.UpdateAsync(DocumentId, _edit.Title, _edit.Type, expiry);
+            _edit.ExpiresOn = expiry;
+            await Docs.UpdateAsync(DocumentId, _edit);
 
             _card = await Docs.GetAsync(DocumentId);
             _message = "Saved.";
@@ -169,7 +172,7 @@ else
         _message = null;
         _error = null;
 
-        var url = Navigation.ToAbsoluteUri(Docs.GetUrl(_card.StoragePath)).ToString();
+        var url = Navigation.ToAbsoluteUri(_card.Url).ToString();
         var result = await JS.InvokeAsync<string>("garage.share", _card.Title, url);
 
         // "unavailable" means neither the share sheet nor the clipboard worked, so the

@@ -3,6 +3,8 @@
 @using Garage.Application.Reporting
 @using Garage.Domain.Repositories
 @using Garage.Domain.Services
+@using Garage.Web.Api.Contracts
+@using Garage.Web.Services.Api
 
 <PageTitle>Reports · Garage</PageTitle>
 
@@ -172,7 +174,7 @@ else if (_tab == Tab.History)
                             <td>@line.Date.ToString("MMM d, yyyy")</td>
                             <td>@line.VehicleNickname</td>
                             <td>@line.Odometer.ToString("N0")</td>
-                            <td>@ReportService.CategoryLabel(line)</td>
+                            <td>@CategoryLabel(line)</td>
                             <td>@line.Item</td>
                             <td>@(line.Shop ?? "—")</td>
                             <td>@line.Cost.ToString("C2")</td>
@@ -258,7 +260,7 @@ else
 @code {
     // Named "Analytics" rather than "Reports": a member may not share its
     // enclosing component's name, and this page compiles to a class called Reports.
-    [Inject] private ReportService Analytics { get; set; } = default!;
+    [Inject] private ReportApiClient Analytics { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
@@ -279,7 +281,7 @@ else
 
     private readonly ReportFilter _filter = new();
     private ReportScreen? _screen;
-    private IReadOnlyList<(Guid Id, string Nickname)> _vehicles = [];
+    private IReadOnlyList<ReportVehicleOption> _vehicles = [];
     private Tab _tab = Tab.Costs;
     private string? _exportMessage;
 
@@ -292,7 +294,7 @@ else
     private async Task ReloadAsync() => _screen = await Analytics.GetScreenAsync(_filter);
 
     private string VehicleLabel => _filter.VehicleId is { } id
-        ? _vehicles.FirstOrDefault(v => v.Id == id).Nickname ?? "Vehicle"
+        ? _vehicles.FirstOrDefault(v => v.Id == id)?.Nickname ?? "Vehicle"
         : _vehicles.Count > 0 ? string.Join(" + ", _vehicles.Select(v => v.Nickname)) : "All vehicles";
 
     private string MilesBreakdown =>
@@ -366,4 +368,17 @@ else
         await JS.InvokeVoidAsync("garage.downloadCsv", export.FileName, export.Content);
         _exportMessage = $"Exported {export.RowCount} row{(export.RowCount == 1 ? "" : "s")} to {export.FileName}.";
     }
+
+    private static string CategoryLabel(CostLine line) => line.Kind switch
+    {
+        CostKind.Fuel => "Fuel",
+        _ => line.Category switch
+        {
+            ServiceCategory.ScheduledService => "Scheduled service",
+            ServiceCategory.Repair => "Repairs",
+            ServiceCategory.Tires => "Tires",
+            ServiceCategory.Inspection => "Inspection",
+            _ => "Other"
+        }
+    };
 }

@@ -1,6 +1,7 @@
 @page "/settings/household"
 @attribute [Authorize]
 @using Garage.Application.Households
+@using Garage.Web.Services.Api
 
 <PageTitle>Household · Garage</PageTitle>
 
@@ -120,7 +121,7 @@ else
 }
 
 @code {
-    [Inject] private HouseholdService Households { get; set; } = default!;
+    [Inject] private HouseholdApiClient Households { get; set; } = default!;
     [Inject] private ICurrentUser CurrentUser { get; set; } = default!;
     [Inject] private VehicleContext Context { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;

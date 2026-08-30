@@ -5,6 +5,8 @@
 @using Garage.Application.Maintenance
 @using Garage.Application.Mileage
 @using Garage.Application.ServiceLogging
+@using Garage.Web.Api.Contracts
+@using Garage.Web.Services.Api
 @using Garage.Domain.Services
 @implements IDisposable
 
@@ -158,11 +160,11 @@ else
     [Inject] private MaintenanceService Maintenance { get; set; } = default!;
     [Inject] private ServiceLogWizard Wizard { get; set; } = default!;
     [Inject] private FuelService FuelService { get; set; } = default!;
-    [Inject] private DocumentService Docs { get; set; } = default!;
+    [Inject] private DocumentApiClient Docs { get; set; } = default!;
 
     private bool _resumable;
     private FuelStats? _stats;
-    private IReadOnlyList<ExpiringDocument> _expiring = [];
+    private IReadOnlyList<ExpiringDocumentResponse> _expiring = [];
     private MileageSummary? _summary;
     private IReadOnlyList<ReminderCard> _overdue = [];
     private IReadOnlyList<ReminderCard> _comingUp = [];

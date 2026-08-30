@@ -97,6 +97,30 @@ builder.Services.AddHttpClient<MaintenanceApiClient>((sp, client) =>
         client.BaseAddress = new Uri(navigation.BaseUri);
     })
     .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<DocumentApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<ReportApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<HouseholdApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<NotificationApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
 
 var app = builder.Build();
 

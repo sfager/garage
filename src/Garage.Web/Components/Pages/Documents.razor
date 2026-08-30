@@ -1,6 +1,8 @@
 @page "/documents"
 @attribute [Authorize]
-@using Garage.Application.Documents
+@using Garage.Domain
+@using Garage.Web.Api.Contracts
+@using Garage.Web.Services.Api
 @implements IDisposable
 
 <PageTitle>Documents · Garage</PageTitle>
@@ -66,7 +68,7 @@ else
                 <a href="@($"/documents/{card.Id}")" style="text-decoration:none;color:inherit">
                     @if (card.IsImage)
                     {
-                        <img src="@Docs.GetUrl(card.StoragePath)" alt="@card.Title"
+                        <img src="@card.Url" alt="@card.Title"
                              style="height:92px;width:100%;object-fit:cover;border:1px solid var(--color-divider)" />
                     }
                     else
@@ -115,12 +117,12 @@ else
 
 @code {
     [Inject] private VehicleContext Context { get; set; } = default!;
-    [Inject] private DocumentService Docs { get; set; } = default!;
+    [Inject] private DocumentApiClient Docs { get; set; } = default!;
     [Inject] private IClock Clock { get; set; } = default!;
 
     private VehicleSummary? _vehicle;
-    private IReadOnlyList<DocumentCard> _files = [];
-    private IReadOnlyList<ReceiptGroup> _receiptGroups = [];
+    private IReadOnlyList<DocumentCardResponse> _files = [];
+    private IReadOnlyList<ReceiptGroupResponse> _receiptGroups = [];
     private bool _uploading;
     private string? _error;
     private string? _message;
@@ -160,22 +162,24 @@ else
     }
 
     /// <summary>The wireframe's "Remind me Aug 27" — a week before it lapses [1l].</summary>
-    private string RemindOn(DocumentCard card) =>
+    private string RemindOn(DocumentCardResponse card) =>
         card.ExpiresOn is { } expiry
             ? Max(expiry.AddDays(-7), Clock.Today).ToString("MMM d")
             : string.Empty;
 
     private static DateOnly Max(DateOnly a, DateOnly b) => a > b ? a : b;
 
-    private async Task RemindAsync(DocumentCard card)
+    private async Task RemindAsync(DocumentCardResponse card)
     {
         _error = null;
         _message = null;
 
         try
         {
-            var reminder = await Docs.CreateExpiryReminderAsync(card.Id);
-            _message = $"Reminder set for {reminder.DueDate:MMM d, yyyy}.";
+            var due = await Docs.CreateExpiryReminderAsync(card.Id);
+            _message = due is { } dueDate
+                ? $"Reminder set for {dueDate:MMM d, yyyy}."
+                : "Reminder set.";
         }
         catch (DomainException ex)
         {

@@ -2,6 +2,7 @@
 @page "/join/{Code}"
 @attribute [Authorize]
 @using Garage.Application.Households
+@using Garage.Web.Services.Api
 
 <PageTitle>Join a garage · Garage</PageTitle>
 
@@ -84,7 +85,7 @@ else
 }
 
 @code {
-    [Inject] private HouseholdService Households { get; set; } = default!;
+    [Inject] private HouseholdApiClient Households { get; set; } = default!;
     [Inject] private VehicleContext Context { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 
