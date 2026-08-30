@@ -1,6 +1,8 @@
 @page "/service/history/{RecordId:guid}"
 @attribute [Authorize]
 @using Garage.Application.Maintenance
+@using Garage.Web.Api.Contracts
+@using Garage.Web.Services.Api
 
 <PageTitle>Service record · Garage</PageTitle>
 
@@ -69,10 +71,10 @@ else
         <div class="grid-2">
             @foreach (var receipt in _record.Receipts)
             {
-                <a href="@FileStore.GetUrl(receipt.StoragePath)" target="_blank" rel="noopener">
+                <a href="@receipt.Url" target="_blank" rel="noopener">
                     @if (receipt.IsImage)
                     {
-                        <img src="@FileStore.GetUrl(receipt.StoragePath)" alt="@receipt.Title"
+                        <img src="@receipt.Url" alt="@receipt.Title"
                              style="height:120px;width:100%;object-fit:cover;border:1px solid var(--color-divider)" />
                     }
                     else
@@ -86,12 +88,11 @@ else
 }
 
 @code {
-    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
-    [Inject] private IFileStore FileStore { get; set; } = default!;
+    [Inject] private MaintenanceApiClient Maintenance { get; set; } = default!;
 
     [Parameter] public Guid RecordId { get; set; }
 
-    private ServiceRecord? _record;
+    private ServiceRecordDetailResponse? _record;
     private bool _loading = true;
 
     protected override async Task OnParametersSetAsync()

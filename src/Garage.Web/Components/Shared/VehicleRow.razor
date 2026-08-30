@@ -1,4 +1,5 @@
 @using Garage.Domain.Repositories
+@using Garage.Web.Services.Api
 @* One vehicle in the garage list, with its archive / restore / delete actions.
    Story V-4: delete states what will be lost before it happens. *@
 
@@ -66,7 +67,7 @@
 }
 
 @code {
-    [Inject] private VehicleService Vehicles { get; set; } = default!;
+    [Inject] private VehicleApiClient Vehicles { get; set; } = default!;
     [Inject] private VehicleContext Context { get; set; } = default!;
 
     [Parameter, EditorRequired] public VehicleSummary Vehicle { get; set; } = default!;

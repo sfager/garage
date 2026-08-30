@@ -15,6 +15,7 @@ namespace Garage.Web.Services;
 /// </summary>
 public class CurrentUser(
     AuthenticationStateProvider authenticationStateProvider,
+    IHttpContextAccessor httpContextAccessor,
     UserManager<ApplicationUser> userManager,
     IHouseholdRepository households,
     IUnitOfWork unitOfWork) : ICurrentUser
@@ -73,6 +74,13 @@ public class CurrentUser(
     {
         if (_principal is not null)
         {
+            return _principal;
+        }
+
+        var requestUser = httpContextAccessor.HttpContext?.User;
+        if (requestUser?.Identity?.IsAuthenticated == true)
+        {
+            _principal = requestUser;
             return _principal;
         }
 

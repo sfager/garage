@@ -1,4 +1,5 @@
 @using Garage.Application.Maintenance
+@using Garage.Web.Services.Api
 
 @* Story S-4: defer a due item by a chosen distance or period. *@
 
@@ -32,7 +33,7 @@
 </div>
 
 @code {
-    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
+    [Inject] private MaintenanceApiClient Maintenance { get; set; } = default!;
 
     [Parameter, EditorRequired] public ReminderCard Card { get; set; } = default!;
     [Parameter] public EventCallback OnClose { get; set; }

@@ -1,5 +1,6 @@
 @page "/vehicles"
 @attribute [Authorize]
+@using Garage.Web.Services.Api
 
 <PageTitle>Garage · Garage</PageTitle>
 
@@ -46,7 +47,7 @@ else
 @code {
     // Named "Garage" rather than "Vehicles": a member may not share its enclosing
     // component's name, and this page compiles to a class called Vehicles.
-    [Inject] private VehicleService Garage { get; set; } = default!;
+    [Inject] private VehicleApiClient Garage { get; set; } = default!;
 
     private IReadOnlyList<VehicleSummary> _vehicles = [];
     private bool _loading = true;

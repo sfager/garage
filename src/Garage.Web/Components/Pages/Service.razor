@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using Garage.Application.Maintenance
 @using Garage.Domain.Services
+@using Garage.Web.Services.Api
 @implements IDisposable
 
 <PageTitle>Maintenance · Garage</PageTitle>
@@ -115,7 +116,7 @@ else
 
 @code {
     [Inject] private VehicleContext Context { get; set; } = default!;
-    [Inject] private MaintenanceService Maintenance { get; set; } = default!;
+    [Inject] private MaintenanceApiClient Maintenance { get; set; } = default!;
 
     private enum Tab { Upcoming, History }
 

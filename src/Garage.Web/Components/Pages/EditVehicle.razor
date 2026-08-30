@@ -1,5 +1,6 @@
 @page "/vehicles/{VehicleId:guid}/edit"
 @attribute [Authorize]
+@using Garage.Web.Services.Api
 
 <PageTitle>Edit vehicle · Garage</PageTitle>
 
@@ -118,9 +119,8 @@ else
     /// <summary>Photos are phone camera shots; anything larger is almost certainly a mistake.</summary>
     private const long MaxPhotoBytes = 8 * 1024 * 1024;
 
-    [Inject] private VehicleService Vehicles { get; set; } = default!;
+    [Inject] private VehicleApiClient Vehicles { get; set; } = default!;
     [Inject] private VehicleContext Context { get; set; } = default!;
-    [Inject] private IFileStore FileStore { get; set; } = default!;
 
     [Parameter] public Guid VehicleId { get; set; }
 
@@ -160,7 +160,7 @@ else
             LicensePlate = vehicle.LicensePlate
         };
 
-        _photoUrl = vehicle.PhotoPath is null ? null : FileStore.GetUrl(vehicle.PhotoPath);
+        _photoUrl = vehicle.PhotoUrl;
         _loading = false;
     }
 
