@@ -1,4 +1,5 @@
 @using Garage.Application.Mileage
+@using Garage.Web.Services.Api
 
 @* Story M-2: a trip takes a date, a distance or a start/end pair, a label and a purpose. *@
 
@@ -84,7 +85,7 @@
 </div>
 
 @code {
-    [Inject] private MileageService Mileage { get; set; } = default!;
+    [Inject] private MileageApiClient Mileage { get; set; } = default!;
     [Inject] private IClock Clock { get; set; } = default!;
 
     [Parameter, EditorRequired] public Guid VehicleId { get; set; }

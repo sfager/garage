@@ -1,4 +1,5 @@
 @using Garage.Application.Fuel
+@using Garage.Web.Services.Api
 
 @* Story G-1: date, volume, total cost, odometer, station and the partial-fill flag [1h]. *@
 
@@ -77,7 +78,7 @@
 </div>
 
 @code {
-    [Inject] private FuelService FuelService { get; set; } = default!;
+    [Inject] private FuelApiClient FuelService { get; set; } = default!;
     [Inject] private IClock Clock { get; set; } = default!;
 
     [Parameter, EditorRequired] public Guid VehicleId { get; set; }

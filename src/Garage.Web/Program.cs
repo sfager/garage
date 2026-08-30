@@ -121,6 +121,18 @@ builder.Services.AddHttpClient<NotificationApiClient>((sp, client) =>
         client.BaseAddress = new Uri(navigation.BaseUri);
     })
     .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<MileageApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+builder.Services.AddHttpClient<FuelApiClient>((sp, client) =>
+    {
+        var navigation = sp.GetRequiredService<NavigationManager>();
+        client.BaseAddress = new Uri(navigation.BaseUri);
+    })
+    .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
 
 var app = builder.Build();
 

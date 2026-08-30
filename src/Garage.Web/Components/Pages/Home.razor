@@ -156,10 +156,10 @@ else
 @code {
     [Inject] private VehicleContext Context { get; set; } = default!;
     [Inject] private IFileStore FileStore { get; set; } = default!;
-    [Inject] private MileageService Mileage { get; set; } = default!;
+    [Inject] private MileageApiClient Mileage { get; set; } = default!;
     [Inject] private MaintenanceService Maintenance { get; set; } = default!;
     [Inject] private ServiceLogWizard Wizard { get; set; } = default!;
-    [Inject] private FuelService FuelService { get; set; } = default!;
+    [Inject] private FuelApiClient FuelService { get; set; } = default!;
     [Inject] private DocumentApiClient Docs { get; set; } = default!;
 
     private bool _resumable;

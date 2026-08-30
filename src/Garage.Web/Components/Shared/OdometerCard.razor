@@ -1,5 +1,6 @@
 @using Garage.Application.Mileage
 @using Garage.Domain.Services
+@using Garage.Web.Services.Api
 
 @* Story M-1: the prominent numeric entry with a Save action, shown both on Home [1a]
    and on the Mileage tab [1j]. Story M-3 supplies the line beneath it. *@
@@ -58,7 +59,7 @@
 </div>
 
 @code {
-    [Inject] private MileageService Mileage { get; set; } = default!;
+    [Inject] private MileageApiClient Mileage { get; set; } = default!;
     [Inject] private IClock Clock { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 

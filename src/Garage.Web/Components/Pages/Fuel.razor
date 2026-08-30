@@ -1,6 +1,7 @@
 @page "/fuel"
 @attribute [Authorize]
 @using Garage.Application.Fuel
+@using Garage.Web.Services.Api
 @implements IDisposable
 
 <PageTitle>Fuel · Garage</PageTitle>
@@ -191,7 +192,7 @@ else
 
 @code {
     [Inject] private VehicleContext Context { get; set; } = default!;
-    [Inject] private FuelService FuelService { get; set; } = default!;
+    [Inject] private FuelApiClient FuelService { get; set; } = default!;
 
     private VehicleSummary? _vehicle;
     private FuelScreen? _screen;
