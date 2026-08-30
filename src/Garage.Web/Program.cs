@@ -11,7 +11,6 @@ using Garage.Web.Components;
 using Garage.Web.Components.Account;
 using Garage.Web.Services.Api;
 using Garage.Web.Services;
-using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.StaticFiles;
@@ -85,54 +84,42 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 builder.Services.AddSingleton<IContentTypeProvider, FileExtensionContentTypeProvider>();
 builder.Services.AddTransient<AuthenticationCookieForwardingHandler>();
-builder.Services.AddHttpClient<VehicleApiClient>((sp, client) =>
-    {
-        var navigation = sp.GetRequiredService<NavigationManager>();
-        client.BaseAddress = new Uri(navigation.BaseUri);
-    })
+builder.Services.AddHttpClient<VehicleApiClient>(ConfigureApiHttpClient)
     .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
-builder.Services.AddHttpClient<MaintenanceApiClient>((sp, client) =>
-    {
-        var navigation = sp.GetRequiredService<NavigationManager>();
-        client.BaseAddress = new Uri(navigation.BaseUri);
-    })
+builder.Services.AddHttpClient<MaintenanceApiClient>(ConfigureApiHttpClient)
     .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
-builder.Services.AddHttpClient<DocumentApiClient>((sp, client) =>
-    {
-        var navigation = sp.GetRequiredService<NavigationManager>();
-        client.BaseAddress = new Uri(navigation.BaseUri);
-    })
+builder.Services.AddHttpClient<DocumentApiClient>(ConfigureApiHttpClient)
     .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
-builder.Services.AddHttpClient<ReportApiClient>((sp, client) =>
-    {
-        var navigation = sp.GetRequiredService<NavigationManager>();
-        client.BaseAddress = new Uri(navigation.BaseUri);
-    })
+builder.Services.AddHttpClient<ReportApiClient>(ConfigureApiHttpClient)
     .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
-builder.Services.AddHttpClient<HouseholdApiClient>((sp, client) =>
-    {
-        var navigation = sp.GetRequiredService<NavigationManager>();
-        client.BaseAddress = new Uri(navigation.BaseUri);
-    })
+builder.Services.AddHttpClient<HouseholdApiClient>(ConfigureApiHttpClient)
     .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
-builder.Services.AddHttpClient<NotificationApiClient>((sp, client) =>
-    {
-        var navigation = sp.GetRequiredService<NavigationManager>();
-        client.BaseAddress = new Uri(navigation.BaseUri);
-    })
+builder.Services.AddHttpClient<NotificationApiClient>(ConfigureApiHttpClient)
     .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
-builder.Services.AddHttpClient<MileageApiClient>((sp, client) =>
-    {
-        var navigation = sp.GetRequiredService<NavigationManager>();
-        client.BaseAddress = new Uri(navigation.BaseUri);
-    })
+builder.Services.AddHttpClient<MileageApiClient>(ConfigureApiHttpClient)
     .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
-builder.Services.AddHttpClient<FuelApiClient>((sp, client) =>
-    {
-        var navigation = sp.GetRequiredService<NavigationManager>();
-        client.BaseAddress = new Uri(navigation.BaseUri);
-    })
+builder.Services.AddHttpClient<FuelApiClient>(ConfigureApiHttpClient)
     .AddHttpMessageHandler<AuthenticationCookieForwardingHandler>();
+
+void ConfigureApiHttpClient(IServiceProvider sp, HttpClient client)
+{
+    var http = sp.GetRequiredService<IHttpContextAccessor>().HttpContext;
+    if (http is not null)
+    {
+        client.BaseAddress = new Uri($"{http.Request.Scheme}://{http.Request.Host}{http.Request.PathBase}/");
+        return;
+    }
+
+    var configuredBaseUrl = sp.GetService<IConfiguration>()?["Garage:BaseUrl"];
+    if (!string.IsNullOrWhiteSpace(configuredBaseUrl))
+    {
+        client.BaseAddress = new Uri(configuredBaseUrl, UriKind.Absolute);
+        return;
+    }
+
+    throw new InvalidOperationException(
+        "Cannot resolve API base address. Either use these clients within an HTTP request or set Garage:BaseUrl.");
+}
 
 var app = builder.Build();
 
