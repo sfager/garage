@@ -61,40 +61,138 @@ Domain has an opinion about.
 | Accounts | Multi-user. Users belong to a `Household`; vehicles belong to a household, so two people can share the same cars |
 | Render mode | Blazor Server (`InteractiveServer`) |
 
-## Running it
+## Database Setup
 
-You need a SQL Server instance. Any of these works:
+Before running the application, you must have a SQL Server instance running and the database
+initialized with migrations. Choose the instructions for your operating system.
+
+### Windows: SQL Server LocalDB
+
+**LocalDB** is a lightweight, file-based SQL Server instance included with Visual Studio and
+the .NET SDK. It's ideal for local development.
+
+#### Option 1: Use LocalDB (recommended for Windows)
+
+If you have Visual Studio or the .NET SDK installed, LocalDB is likely already available.
+Verify it by running:
 
 ```bash
-docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=Your_password123" -p 1433:1433 -d mcr.microsoft.com/mssql/server:2022-latest
+sqllocaldb info mssqllocaldb
 ```
 
-Then point the app at it — the development connection string lives in
-`src/Garage.Web/appsettings.Development.json`, or override it without touching the file:
+If `mssqllocaldb` is listed, skip to "Configure and Initialize the Database" below.
+
+#### Option 2: Install LocalDB Separately (if needed)
+
+If LocalDB is not available, download and install **SQL Server Express with LocalDB**:
+1. Visit [SQL Server Express](https://www.microsoft.com/en-us/sql-server/sql-server-downloads)
+2. Download the **Express** edition
+3. Run the installer and choose **Local DB** during setup
+4. Verify installation with `sqllocaldb info mssqllocaldb`
+
+#### Configure and Initialize the Database
+
+By default, the app uses the LocalDB connection string `(localdb)\mssqllocaldb`. No
+additional configuration is needed — just run the application.
+
+However, if you prefer to initialize the database before starting the app, or if you've
+configured a different connection string, apply the migrations manually:
 
 ```bash
-dotnet user-secrets --project src/Garage.Web set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=Garage-dev;User Id=sa;Password=Your_password123;TrustServerCertificate=True"
+dotnet ef database update --project src/Garage.Infrastructure
 ```
 
-Run it:
+Then start the app:
 
 ```bash
 dotnet run --project src/Garage.Web --launch-profile https
 ```
 
-In Development the app applies migrations on startup. With `Garage:SeedDemoData` set to
-`true` (the default for Development) it also creates a demo account whose household already
-holds the two cars from the wireframes:
+### macOS & Linux: Docker-based SQL Server
+
+SQL Server is available as a Docker container, which is the standard approach on macOS
+and Linux.
+
+#### Start the SQL Server Container
+
+Run the following command to start a SQL Server 2022 container:
+
+```bash
+docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=Your_password123" -p 1433:1433 --name myapps-mssql -d mcr.microsoft.com/mssql/server:2022-latest
+```
+
+Replace `Your_password123` with a strong password. The container will be accessible at
+`localhost:1433`.
+
+#### Configure the Connection String
+
+Store the connection string in user secrets (so it doesn't appear in version control):
+
+```bash
+dotnet user-secrets --project src/Garage.Web set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=MyApps;User Id=sa;Password=YOUR_PASSWORD;TrustServerCertificate=True"
+```
+
+Replace `YOUR_PASSWORD` with the password you used above.
+
+#### Initialize the Database
+
+Apply migrations to create the database schema:
+
+```bash
+dotnet ef database update --project src/Garage.Infrastructure
+```
+
+### Verify the Database Was Created
+
+After running `dotnet ef database update`, verify the database was created by connecting
+to SQL Server:
+
+**Windows (LocalDB)**:
+```bash
+sqlcmd -S "(localdb)\mssqllocaldb" -d MyApps -Q "SELECT @@VERSION"
+```
+
+**macOS/Linux (Docker)**:
+```bash
+docker exec myapps-mssql /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "YOUR_PASSWORD_HERE" -Q "SELECT @@VERSION"
+```
+
+If you see version information, the database connection is working.
+
+## Running the Application
+
+Once the database is initialized, start the application:
+
+```bash
+dotnet run --project src/Garage.Web --launch-profile https
+```
+
+The app applies migrations on startup in Development mode, so the database will be
+automatically updated if any pending migrations exist.
+
+### Demo Data
+
+By default in Development, the app seeds a demo account with sample data:
 
 ```
 demo@garage.local / Demo123!
 ```
 
-Set `Garage:SeedDemoData` to `false` to start with an empty garage instead.
+This demo account includes the two cars from the wireframes. To start with an empty garage
+instead, set:
 
-Registering a new account creates a household for that user on first use, so a new
-sign-up starts with an empty garage. To share those cars with someone else, invite them —
-see below.
+```bash
+dotnet user-secrets --project src/Garage.Web set "Garage:SeedDemoData" "false"
+```
+
+To re-enable seeding later:
+
+```bash
+dotnet user-secrets --project src/Garage.Web set "Garage:SeedDemoData" "true"
+```
+
+New user accounts created through registration start with an empty garage and can invite
+others to share their household.
 
 ## Sharing a garage with someone
 
@@ -280,3 +378,7 @@ criterion is met only partly, or where verification stopped short of proof.
 | **Barcode scanning (V-3) unproven** | The failure paths are verified; reading an actual VIN barcode needs a camera and a plate to point it at. |
 | **Test shape** | The Domain is covered by 107 unit tests. Application services — maintenance, reporting, fuel, documents, the wizard — were verified by exercising the running app, not by unit tests. There are no integration tests against SQL Server and no component tests. |
 | **Two accepted risks from the security review** | Email addresses are not verified at sign-up (`RequireConfirmedAccount = false`), because no email sender is configured — re-enable it once one is. And `appsettings.json` ships a default SQL Server connection string containing an `sa` password; production must override it, and it should be emptied before this is deployed anywhere real. |
+
+
+
+

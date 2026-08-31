@@ -14,7 +14,7 @@ public class GarageDbContextFactory : IDesignTimeDbContextFactory<GarageDbContex
     public GarageDbContext CreateDbContext(string[] args)
     {
         var connectionString = Environment.GetEnvironmentVariable("GARAGE_CONNECTION")
-            ?? "Server=(localdb)\\mssqllocaldb;Database=Garage;Trusted_Connection=True;MultipleActiveResultSets=true";
+                               ?? "Server=(localdb)\\mssqllocaldb;Database=MyApps;Integrated Security=True;Trusted_Connection=True;MultipleActiveResultSets=true";
 
         // IdentityDbContext reads the schema version off the application service
         // provider while building the model. Without this the scaffolded migration
