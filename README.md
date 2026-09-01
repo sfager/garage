@@ -247,14 +247,143 @@ day**, which is what a registration expiring on 3 September actually is. `Remind
 creates these; they carry a `FixedDueDate`, never repeat after service, and project through
 the same `ReminderProjector` so they band and sort alongside everything else.
 
-## Uploaded files
+## Uploaded files and storage configuration
 
-Vehicle photos — and later receipts and documents — are written under
-`Garage:FileStorageRoot` with generated storage keys, never the client's filename.
-They are served from `/files/{key}` by an authorized endpoint that checks the file
-belongs to a vehicle in the caller's household, so they are not readable by another
-household even if the key leaks. A key the caller does not own returns 404 rather than
-403, so the endpoint does not confirm that a file exists.
+Vehicle photos — and later receipts and documents — are written under the configured file
+storage provider with generated storage keys, never the client's filename. They are served
+from `/files/{key}` by an authorized endpoint that checks the file belongs to a vehicle in
+the caller's household, so they are not readable by another household even if the key leaks.
+A key the caller does not own returns 404 rather than 403, so the endpoint does not confirm
+that a file exists.
+
+### File Storage Configuration
+
+Garage supports two file storage providers:
+
+#### Local File System (Default)
+
+Stores files on the local disk. Suitable for single-server deployments and local development.
+
+```json
+{
+  "Garage": {
+    "FileStorage": {
+      "Provider": "Local",
+      "LocalRoot": "App_Data/files"
+    }
+  }
+}
+```
+
+The `LocalRoot` can be an absolute path or relative to the application's content root.
+If not specified, defaults to `App_Data/files`.
+
+**Legacy configuration** (still supported):
+```json
+{
+  "Garage": {
+    "FileStorageRoot": "App_Data/files"
+  }
+}
+```
+
+#### Azure Blob Storage
+
+Stores files in Azure Blob Storage. **Recommended for cloud deployments** and multi-instance
+Azure App Services, where local file system storage is ephemeral and cannot be shared
+across instances.
+
+**Production (Azure App Service with Managed Identity):**
+
+```json
+{
+  "Garage": {
+    "FileStorage": {
+      "Provider": "AzureBlob",
+      "AzureBlob": {
+        "ContainerName": "garage-files",
+        "ServiceUrl": "https://yourstorageaccount.blob.core.windows.net"
+      }
+    }
+  }
+}
+```
+
+Or configure via environment variables in Azure App Service:
+```
+Garage__FileStorage__Provider=AzureBlob
+Garage__FileStorage__AzureBlob__ContainerName=garage-files
+Garage__FileStorage__AzureBlob__ServiceUrl=https://yourstorageaccount.blob.core.windows.net
+```
+
+**Authentication:** Uses `DefaultAzureCredential` which automatically detects:
+- **Managed Identity** in Azure App Service (production)
+- **Azure CLI credentials** (`az login`) for local development
+- **Visual Studio credentials** when signed in to Azure
+- **Environment variables** for service principals
+
+**Azure App Service setup:**
+1. Create an Azure Storage Account (Standard_LRS or better)
+2. Create a blob container named `garage-files` (or your chosen name)
+3. Enable **System-Assigned Managed Identity** on your App Service
+4. Grant the Managed Identity **Storage Blob Data Contributor** role on the storage account
+   (IAM → Add role assignment)
+5. Configure the App Service settings (Provider, ContainerName, ServiceUrl)
+
+The blob container is created automatically on first use if it doesn't exist.
+
+**Local Development with Azurite:**
+
+[Azurite](https://learn.microsoft.com/azure/storage/common/storage-use-azurite) is a
+free, open-source Azure Storage emulator perfect for local development.
+
+1. Install Azurite:
+   ```bash
+   npm install -g azurite
+   ```
+
+2. Start Azurite:
+   ```bash
+   azurite --silent --location c:\azurite
+   ```
+
+   Or use Visual Studio's integrated Azurite:
+   **View** → **Other Windows** → **Azure Storage Emulator (Azurite)**
+
+3. Configure `appsettings.Development.json`:
+   ```json
+   {
+     "Garage": {
+       "FileStorage": {
+         "Provider": "AzureBlob",
+         "AzureBlob": {
+           "ContainerName": "garage-files",
+           "ServiceUrl": "http://127.0.0.1:10000/devstoreaccount1"
+         }
+       }
+     }
+   }
+   ```
+
+4. Run the application — the container is created automatically.
+
+**Migrating from Local to Azure Blob Storage:**
+
+Existing files in `App_Data/files/` are not automatically migrated. To move them:
+
+1. Use Azure Storage Explorer or the Azure CLI:
+   ```bash
+   az storage blob upload-batch \
+     --account-name yourstorageaccount \
+     --destination garage-files \
+     --source App_Data/files \
+     --auth-mode login
+   ```
+
+2. Preserve the folder structure — storage keys like `vehicles/abc123.jpg` must remain
+   unchanged as they're stored in the database.
+
+3. Update configuration to `"Provider": "AzureBlob"` and restart the application.
 
 ## How efficiency and cost per mile are worked out
 

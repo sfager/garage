@@ -39,12 +39,33 @@ builder.Services.AddHttpContextAccessor();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-var fileStoreOptions = new FileStoreOptions
+// File storage configuration - supports Local and AzureBlob providers
+var fileStorageConfig = new FileStorageConfiguration();
+builder.Configuration.GetSection("Garage:FileStorage").Bind(fileStorageConfig);
+
+// Legacy fallback: if no FileStorage section exists, use FileStorageRoot (backward compatibility)
+if (string.IsNullOrEmpty(fileStorageConfig.Provider))
 {
-    Root = Path.Combine(builder.Environment.ContentRootPath,
-        builder.Configuration.GetValue("Garage:FileStorageRoot", "App_Data/files")!),
-    RequestPath = "/files"
-};
+    fileStorageConfig.Provider = "Local";
+    fileStorageConfig.LocalRoot = Path.Combine(
+        builder.Environment.ContentRootPath,
+        builder.Configuration.GetValue("Garage:FileStorageRoot", "App_Data/files")!);
+}
+else if (fileStorageConfig.Provider.Equals("Local", StringComparison.OrdinalIgnoreCase))
+{
+    // Ensure LocalRoot is set and resolve relative paths
+    if (string.IsNullOrEmpty(fileStorageConfig.LocalRoot))
+    {
+        fileStorageConfig.LocalRoot = Path.Combine(
+            builder.Environment.ContentRootPath,
+            builder.Configuration.GetValue("Garage:FileStorageRoot", "App_Data/files")!);
+    }
+    else if (!Path.IsPathRooted(fileStorageConfig.LocalRoot))
+    {
+        fileStorageConfig.LocalRoot = Path.Combine(
+            builder.Environment.ContentRootPath, fileStorageConfig.LocalRoot);
+    }
+}
 
 // Story S-5: web push. Keys come from configuration or user-secrets; without them the
 // sender reports itself unconfigured and the settings page says so plainly.
@@ -62,7 +83,7 @@ var sweepOptions = new NotificationSweepOptions
 };
 
 // Onion wiring: the Web layer knows both inner layers, and neither knows it.
-builder.Services.AddGarageInfrastructure(connectionString, fileStoreOptions, vapidOptions, sweepOptions);
+builder.Services.AddGarageInfrastructure(connectionString, fileStorageConfig, vapidOptions, sweepOptions);
 builder.Services.AddGarageApplication();
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
@@ -139,7 +160,12 @@ app.UseHttpsRedirection();
 
 app.UseAntiforgery();
 
-Directory.CreateDirectory(fileStoreOptions.Root);
+// Only create local directory for Local file storage provider
+if (fileStorageConfig.Provider.Equals("Local", StringComparison.OrdinalIgnoreCase)
+    && !string.IsNullOrEmpty(fileStorageConfig.LocalRoot))
+{
+    Directory.CreateDirectory(fileStorageConfig.LocalRoot);
+}
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
@@ -152,7 +178,7 @@ app.MapAdditionalIdentityEndpoints();
 // Uploaded photos, receipts and documents. Not served as plain static files: every
 // request is checked against the caller's household, so an unguessed storage key is
 // not the only thing keeping one household out of another's paperwork.
-app.MapGet($"{fileStoreOptions.RequestPath}/{{**storageKey}}", async (
+app.MapGet("/files/{**storageKey}", async (
         string storageKey,
         HttpContext http,
         UserManager<ApplicationUser> users,

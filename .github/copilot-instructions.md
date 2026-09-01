@@ -146,11 +146,18 @@ public class VehicleTests
 
 ### Documents & File Upload
 
-- Vehicle photos, receipts, and documents are written to `Garage:FileStorageRoot` with **generated storage keys** (never the client filename).
+- Vehicle photos, receipts, and documents are written to the configured **file storage provider** with **generated storage keys** (never the client filename).
+- **Two providers supported**:
+  - **LocalFileStore**: Stores files in `App_Data/files` (or configured `LocalRoot`). Default for local development and single-server deployments.
+  - **AzureBlobFileStore**: Stores files in Azure Blob Storage. Recommended for cloud deployments and multi-instance Azure App Services.
+- **Provider selection**: Configured via `Garage:FileStorage:Provider` in `appsettings.json` ("Local" or "AzureBlob").
+- **Storage keys**: Same format for both providers (`vehicles/guid.ext`, `receipts/guid.pdf`).
 - Served from `/files/{key}` by an authorized endpoint that checks the file belongs to the caller's household.
 - Returns 404 for unowned files (not 403) so the endpoint doesn't confirm file existence.
 - Uploads are checked against `UploadPolicy` (allowlist); content type is derived from that allowlist, not from the client claim.
 - Non-safe-to-render files are sent as `Content-Disposition: attachment`; all files get `X-Content-Type-Options: nosniff`.
+- **Azure Blob Storage authentication**: Uses `DefaultAzureCredential` which auto-detects Managed Identity (production), Azure CLI credentials (local dev with `az login`), Visual Studio credentials (local dev when signed in).
+- **Azurite for local development**: Configure `ServiceUrl` to `http://127.0.0.1:10000/devstoreaccount1` to test Azure Blob Storage locally without an Azure subscription.
 
 ### Push Notifications
 
@@ -178,6 +185,7 @@ public class VehicleTests
 | Repository contracts | `src/Garage.Domain/Repositories/I*.cs` | Define types you need alongside the interface. |
 | Application services | `src/Garage.Application/{Feature}/*.cs` | Depend on Application & Domain; implement `IApplicationService` if needed. |
 | Infrastructure repositories | `src/Garage.Infrastructure/Persistence/*.cs` | Implement Domain repository interfaces. |
+| File storage providers | `src/Garage.Infrastructure/Storage/*.cs` | Implement `IFileStore`: `LocalFileStore` (default), `AzureBlobFileStore` (cloud). Selection in `DependencyInjection.cs` based on `FileStorageConfiguration.Provider`. |
 | Blazor pages | `src/Garage.Web/Components/Pages/*.razor` | Mark as `[Authorize]`; avoid touching `GarageDbContext` directly. |
 | Database migrations | `src/Garage.Infrastructure/Persistence/Migrations/*.cs` | Generated; do not hand-edit. |
 | Domain tests | `tests/Garage.Domain.Tests/*.cs` | NUnit; Arrange/Act/Assert; test invariants, not implementation. |

@@ -31,7 +31,7 @@ public static class DependencyInjection
     public static IServiceCollection AddGarageInfrastructure(
         this IServiceCollection services,
         string connectionString,
-        FileStoreOptions? fileStore = null,
+        FileStorageConfiguration fileStorage,
         VapidOptions? vapid = null,
         NotificationSweepOptions? sweep = null)
     {
@@ -61,8 +61,32 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<GarageDbSeeder>();
 
-        services.AddSingleton(fileStore ?? new FileStoreOptions());
-        services.AddSingleton<IFileStore, LocalFileStore>();
+        // Register appropriate IFileStore based on configured provider
+        switch (fileStorage.Provider.ToLowerInvariant())
+        {
+            case "azureblob":
+                if (fileStorage.AzureBlob is null)
+                {
+                    throw new InvalidOperationException(
+                        "AzureBlob configuration is required when Provider is 'AzureBlob'. " +
+                        "Ensure Garage:FileStorage:AzureBlob section is present in appsettings.json.");
+                }
+
+                services.AddSingleton(fileStorage.AzureBlob);
+                services.AddSingleton<IFileStore, AzureBlobFileStore>();
+                break;
+
+            case "local":
+            default:
+                var localOptions = new FileStoreOptions
+                {
+                    Root = fileStorage.LocalRoot ?? "App_Data/files",
+                    RequestPath = "/files"
+                };
+                services.AddSingleton(localOptions);
+                services.AddSingleton<IFileStore, LocalFileStore>();
+                break;
+        }
 
         // vPIC is a public service, so a slow or missing response must not hold a page
         // open; the lookup reports failure and the user types the details instead.
