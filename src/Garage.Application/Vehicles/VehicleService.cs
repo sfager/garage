@@ -50,7 +50,7 @@ public class VehicleService(
     public async Task<Vehicle?> GetAsync(Guid vehicleId, CancellationToken cancellationToken = default)
     {
         var householdId = await currentUser.GetHouseholdIdAsync(cancellationToken);
-        return await vehicles.GetForHouseholdAsync(vehicleId, householdId, cancellationToken);
+        return await vehicles.GetForHouseholdAsync(vehicleId, householdId, cancellationToken: cancellationToken);
     }
 
     /// <summary>Every vehicle the household owns, archived ones included.</summary>
@@ -93,6 +93,8 @@ public class VehicleService(
             throw new DomainException("A vehicle photo has to be an image — JPEG, PNG, GIF, WebP or HEIC.");
         }
 
+        //unitOfWork.AttachEntity(vehicle);
+        
         var previous = vehicle.PhotoPath;
         var key = await fileStore.SaveAsync(content, fileName, "vehicles", cancellationToken);
         vehicle.SetPhoto(key);
@@ -109,6 +111,8 @@ public class VehicleService(
         var vehicle = await RequireAsync(vehicleId, cancellationToken);
         var previous = vehicle.PhotoPath;
 
+        //unitOfWork.AttachEntity(vehicle);
+        
         vehicle.SetPhoto(null);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -160,7 +164,7 @@ public class VehicleService(
     private async Task<Vehicle> RequireAsync(Guid vehicleId, CancellationToken cancellationToken)
     {
         var householdId = await currentUser.GetHouseholdIdAsync(cancellationToken);
-        return await vehicles.GetForHouseholdAsync(vehicleId, householdId, cancellationToken)
+        return await vehicles.GetForHouseholdAsync(vehicleId, householdId, cancellationToken: cancellationToken)
             ?? throw new DomainException("That vehicle is not in your garage.");
     }
 

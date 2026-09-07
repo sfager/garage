@@ -427,3 +427,9 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Hide Azurite development folder
+.azurite_data
+
+# exclude Rider folder
+.idea

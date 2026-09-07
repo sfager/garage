@@ -255,7 +255,7 @@ public class MaintenanceService(
     private async Task<Vehicle> RequireVehicleAsync(Guid vehicleId, CancellationToken cancellationToken)
     {
         var householdId = await currentUser.GetHouseholdIdAsync(cancellationToken);
-        return await vehicles.GetForHouseholdAsync(vehicleId, householdId, cancellationToken)
+        return await vehicles.GetForHouseholdAsync(vehicleId, householdId, cancellationToken: cancellationToken)
             ?? throw new DomainException("That vehicle is not in your garage.");
     }
 

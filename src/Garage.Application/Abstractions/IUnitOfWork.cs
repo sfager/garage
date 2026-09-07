@@ -1,3 +1,5 @@
+using Garage.Domain.Common;
+
 namespace Garage.Application.Abstractions;
 
 /// <summary>One commit boundary shared by every repository in a request.</summary>

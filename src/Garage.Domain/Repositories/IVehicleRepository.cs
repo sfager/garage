@@ -11,7 +11,7 @@ public interface IVehicleRepository : IRepository<Vehicle>
     Task<IReadOnlyList<Vehicle>> ListAllAsync(Guid householdId, CancellationToken cancellationToken = default);
 
     /// <summary>Loads a vehicle only if it belongs to the given household.</summary>
-    Task<Vehicle?> GetForHouseholdAsync(Guid vehicleId, Guid householdId, CancellationToken cancellationToken = default);
+    Task<Vehicle?> GetForHouseholdAsync(Guid vehicleId, Guid householdId, bool noTracking = false, CancellationToken cancellationToken = default);
 
     Task<bool> VinExistsAsync(string vin, Guid householdId, CancellationToken cancellationToken = default);
 

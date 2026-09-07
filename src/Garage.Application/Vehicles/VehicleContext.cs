@@ -118,7 +118,7 @@ public class VehicleContext(
         try
         {
             var householdId = await currentUser.GetHouseholdIdAsync(cancellationToken);
-            return await vehicles.GetForHouseholdAsync(Selected.Id, householdId, cancellationToken);
+            return await vehicles.GetForHouseholdAsync(Selected.Id, householdId, noTracking: true, cancellationToken);
         }
         finally
         {
@@ -139,7 +139,7 @@ public class VehicleContext(
         try
         {
             var householdId = await currentUser.GetHouseholdIdAsync(cancellationToken);
-            vehicle = await vehicles.GetForHouseholdAsync(Selected.Id, householdId, cancellationToken);
+            vehicle = await vehicles.GetForHouseholdAsync(Selected.Id, householdId, noTracking: true, cancellationToken);
         }
         finally
         {

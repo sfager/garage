@@ -47,4 +47,8 @@ public class GarageDbContext(DbContextOptions<GarageDbContext> options)
                 .ValueGeneratedNever();
         }
     }
+
+    public void AttachEntity<T>(T entity) where T : Entity => Attach(entity);
+
+    public void StopTracking<T>(T entity) where T : Entity => Entry(entity).State = EntityState.Unchanged;
 }

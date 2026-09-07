@@ -159,7 +159,7 @@ public class ServiceLogWizard(
         }
 
         var householdId = await currentUser.GetHouseholdIdAsync(cancellationToken);
-        var vehicle = await vehicles.GetForHouseholdAsync(draft.VehicleId, householdId, cancellationToken)
+        var vehicle = await vehicles.GetForHouseholdAsync(draft.VehicleId, householdId, cancellationToken: cancellationToken)
             ?? throw new DomainException("That vehicle is not in your garage.");
 
         var record = new ServiceRecord(vehicle.Id, draft.Date, odometer, draft.Category, total);

@@ -184,7 +184,7 @@ public class VehicleServiceTests
         public Task<IReadOnlyList<Vehicle>> ListAllAsync(Guid householdId, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<Vehicle>>([.. _vehicles.Where(v => v.HouseholdId == householdId)]);
 
-        public Task<Vehicle?> GetForHouseholdAsync(Guid vehicleId, Guid householdId, CancellationToken cancellationToken = default) =>
+        public Task<Vehicle?> GetForHouseholdAsync(Guid vehicleId, Guid householdId, bool noTracking = false, CancellationToken cancellationToken = default) =>
             Task.FromResult(_vehicles.FirstOrDefault(v => v.Id == vehicleId && v.HouseholdId == householdId));
 
         public Task<bool> VinExistsAsync(string vin, Guid householdId, CancellationToken cancellationToken = default) =>
