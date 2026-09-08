@@ -17,7 +17,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ./src/Garage.Web
+        working-directory: ./src/Web
     
     steps:
       - uses: actions/checkout@v4
