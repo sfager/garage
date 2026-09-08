@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Garage.Domain\Garage.Domain.csproj" />
+    <ProjectReference Include="..\Domain\Garage.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

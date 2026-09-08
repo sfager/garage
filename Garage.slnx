@@ -1,12 +1,12 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Garage.Application/Garage.Application.csproj" />
-    <Project Path="src/Garage.Domain/Garage.Domain.csproj" />
-    <Project Path="src/Garage.Infrastructure/Garage.Infrastructure.csproj" />
-    <Project Path="src/Garage.Web/Garage.Web.csproj" />
+    <Project Path="src/Application/Garage.Application.csproj" />
+    <Project Path="src/Domain/Garage.Domain.csproj" />
+    <Project Path="src/Infrastructure/Garage.Infrastructure.csproj" />
+    <Project Path="src/Web/Garage.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Garage.Domain.Tests/Garage.Domain.Tests.csproj" />
+    <Project Path="tests/Domain.Tests/Garage.Domain.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/GenerateVapidKeys/GenerateVapidKeys.csproj" />
